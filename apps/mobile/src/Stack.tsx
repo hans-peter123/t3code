@@ -118,6 +118,7 @@ import {
 import { SettingsKeyboardRouteScreen } from "./features/settings/SettingsKeyboardRouteScreen";
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsMicrophoneRouteScreen } from "./features/settings/SettingsMicrophoneRouteScreen";
+import { SettingsSpeechRouteScreen } from "./features/speech/SettingsSpeechRouteScreen";
 import {
   SettingsOpenSourceLicenseRouteScreen,
   SettingsOpenSourceLicensesRouteScreen,
@@ -371,6 +372,14 @@ const SETTINGS_SCREENS = {
     options: {
       ...SETTINGS_PAGE_OPTIONS,
       title: "Microphone",
+    },
+  }),
+  SettingsSpeech: createNativeStackScreen({
+    screen: SettingsSpeechRouteScreen,
+    linking: "settings/read-aloud",
+    options: {
+      ...SETTINGS_PAGE_OPTIONS,
+      title: "Read aloud",
     },
   }),
   SettingsFollowUp: createNativeStackScreen({
