@@ -210,7 +210,7 @@ export function silentWav(): Uint8Array {
 export function describeTranscriptionTest(result: PromiseSettledResult<string>): string {
   if (result.status === "fulfilled") {
     return result.value
-      ? `The server answered with: "${result.value}"`
+      ? `Works. The server answered: "${result.value}" (Whisper models often invent a short phrase for the silent test audio.)`
       : "The server answered. The test audio is silent, so an empty transcript is expected.";
   }
   const error = result.reason;
