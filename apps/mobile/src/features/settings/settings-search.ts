@@ -50,7 +50,15 @@ const SETTINGS_SEARCH_TERMS = {
     "microphone order",
     "bluetooth",
   ],
-  SettingsSpeech: ["text to speech", "tts", "voice", "speak", "openai", "elevenlabs"],
+  SettingsSpeech: [
+    "read aloud",
+    "text to speech",
+    "tts",
+    "dictation",
+    "transcription",
+    "openai",
+    "elevenlabs",
+  ],
   SettingsScheduledTasks: ["automations", "schedule", "cron", "recurring", "webhook"],
   SettingsProjectOverview: ["project", "overview", "checkouts", "delete project"],
   SettingsOrganization: [

@@ -13,13 +13,13 @@ import { SettingsSection } from "../settings/components/SettingsSection";
 import { listElevenLabsVoices, type SpeechVoice } from "./speechProviders";
 import { setSpeechPlaybackRate, speakMessage, stopSpeech } from "./speechPlayback";
 import {
-  activeSpeechProvider,
   OPENAI_VOICES,
   PLAYBACK_RATES,
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,
   type SpeechProviderConfig,
   type SpeechProviderKind,
+  transcriptionProviderProblem,
   updateSpeechSettings,
   useSpeechSettings,
 } from "./speechSettings";
@@ -30,7 +30,7 @@ function providerLabel(provider: SpeechProviderConfig): string {
   return provider.name.trim() || SPEECH_PROVIDER_KINDS[provider.kind].label;
 }
 
-function addProvider(kind: SpeechProviderKind) {
+function addProvider(kind: SpeechProviderKind, onAdded: (id: string) => void) {
   const defaults = SPEECH_PROVIDER_KINDS[kind];
   const provider: SpeechProviderConfig = {
     id: randomUUID(),
@@ -40,12 +40,15 @@ function addProvider(kind: SpeechProviderKind) {
     baseUrl: "",
     model: defaults.defaultModel,
     voice: defaults.defaultVoice,
+    transcriptionModel: defaults.defaultTranscriptionModel,
   };
   void updateSpeechSettings((current) => ({
     ...current,
     providers: [...current.providers, provider],
-    activeProviderId: provider.id,
+    // The first provider also turns read aloud on; later ones are picked explicitly.
+    activeProviderId: current.providers.length === 0 ? provider.id : current.activeProviderId,
   }));
+  onAdded(provider.id);
 }
 
 function editProvider(id: string, patch: Partial<SpeechProviderConfig>) {
@@ -171,7 +174,7 @@ function ProviderSettings(props: { readonly provider: SpeechProviderConfig }) {
           onChange={(apiKey) => editProvider(provider.id, { apiKey })}
         />
         <Field
-          label="Model"
+          label="Speech model (read aloud)"
           value={provider.model}
           placeholder={kind.defaultModel}
           separated
@@ -184,6 +187,13 @@ function ProviderSettings(props: { readonly provider: SpeechProviderConfig }) {
           placeholder={kind.defaultVoice || "Voice ID"}
           separated
           onChange={(voice) => editProvider(provider.id, { voice })}
+        />
+        <Field
+          label="Transcription model (dictation)"
+          value={provider.transcriptionModel}
+          placeholder={kind.defaultTranscriptionModel}
+          separated
+          onChange={(transcriptionModel) => editProvider(provider.id, { transcriptionModel })}
         />
       </SettingsSection>
 
@@ -199,7 +209,7 @@ function ProviderSettings(props: { readonly provider: SpeechProviderConfig }) {
         </SettingsSection>
       ) : null}
 
-      <SettingsSection footer={problem ?? undefined}>
+      <SettingsSection footer={problem ? `Read aloud: ${problem}` : undefined}>
         <SettingsActionRow
           icon="play"
           label="Play sample"
@@ -246,10 +256,18 @@ function ProviderSettings(props: { readonly provider: SpeechProviderConfig }) {
   );
 }
 
+function roleDescription(provider: SpeechProviderConfig, problem: string | null): string {
+  return problem ?? SPEECH_PROVIDER_KINDS[provider.kind].label;
+}
+
 export function SettingsSpeechRouteScreen() {
   const insets = useSafeAreaInsets();
   const settings = useSpeechSettings();
-  const active = activeSpeechProvider(settings);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editing =
+    settings.providers.find((provider) => provider.id === editingId) ??
+    settings.providers[0] ??
+    null;
 
   return (
     <View collapsable={false} className="flex-1 bg-sheet">
@@ -261,25 +279,76 @@ export function SettingsSpeechRouteScreen() {
         contentContainerClassName="gap-5 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
       >
-        <SettingsSection
-          title="Voice provider"
-          footer="API keys are stored in this device's keychain and sent only to the provider."
-        >
-          {settings.providers.map((provider, index) => (
+        <SettingsSection title="Read aloud with">
+          <SettingsChoiceRow
+            label="Off"
+            description="Hide the read aloud button"
+            selected={settings.activeProviderId === null}
+            onPress={() =>
+              void updateSpeechSettings((current) => ({ ...current, activeProviderId: null }))
+            }
+          />
+          {settings.providers.map((provider) => (
             <SettingsChoiceRow
               key={provider.id}
               label={providerLabel(provider)}
-              description={
-                speechProviderProblem(provider) ?? SPEECH_PROVIDER_KINDS[provider.kind].label
-              }
+              description={roleDescription(provider, speechProviderProblem(provider))}
               selected={provider.id === settings.activeProviderId}
-              separated={index > 0}
+              separated
               onPress={() =>
                 void updateSpeechSettings((current) => ({
                   ...current,
                   activeProviderId: provider.id,
                 }))
               }
+            />
+          ))}
+        </SettingsSection>
+
+        <SettingsSection
+          title="Dictate with"
+          footer="Used by the microphone in the message composer."
+        >
+          <SettingsChoiceRow
+            label="On this iPhone"
+            description="Apple speech recognition, iOS 26 or later"
+            selected={settings.transcriptionProviderId === null}
+            onPress={() =>
+              void updateSpeechSettings((current) => ({
+                ...current,
+                transcriptionProviderId: null,
+              }))
+            }
+          />
+          {settings.providers.map((provider) => (
+            <SettingsChoiceRow
+              key={provider.id}
+              label={providerLabel(provider)}
+              description={roleDescription(provider, transcriptionProviderProblem(provider))}
+              selected={provider.id === settings.transcriptionProviderId}
+              separated
+              onPress={() =>
+                void updateSpeechSettings((current) => ({
+                  ...current,
+                  transcriptionProviderId: provider.id,
+                }))
+              }
+            />
+          ))}
+        </SettingsSection>
+
+        <SettingsSection
+          title="Providers"
+          footer="API keys are stored in this device's keychain and sent only to the provider."
+        >
+          {settings.providers.map((provider, index) => (
+            <SettingsChoiceRow
+              key={provider.id}
+              label={providerLabel(provider)}
+              description="Tap to edit"
+              selected={provider.id === editing?.id}
+              separated={index > 0}
+              onPress={() => setEditingId(provider.id)}
             />
           ))}
           <SettingsActionRow
@@ -289,7 +358,7 @@ export function SettingsSpeechRouteScreen() {
               Dialog.alert("Add provider", undefined, [
                 ...(Object.keys(SPEECH_PROVIDER_KINDS) as SpeechProviderKind[]).map((kind) => ({
                   text: SPEECH_PROVIDER_KINDS[kind].label,
-                  onPress: () => addProvider(kind),
+                  onPress: () => addProvider(kind, setEditingId),
                 })),
                 { text: "Cancel", style: "cancel" as const },
               ])
@@ -297,8 +366,8 @@ export function SettingsSpeechRouteScreen() {
           />
         </SettingsSection>
 
-        {/* Keyed so inputs and loaded voices reset when another provider is selected. */}
-        {active ? <ProviderSettings key={active.id} provider={active} /> : null}
+        {/* Keyed so inputs and loaded voices reset when another provider is edited. */}
+        {editing ? <ProviderSettings key={editing.id} provider={editing} /> : null}
 
         <SettingsSection title="Playback speed">
           <View className="p-3">
@@ -314,8 +383,9 @@ export function SettingsSpeechRouteScreen() {
         </SettingsSection>
 
         <Text className="px-2 text-sm text-foreground-muted">
-          Custom servers need an OpenAI-compatible /audio/speech endpoint that returns 16-bit WAV,
-          such as Kokoro-FastAPI or openedai-speech. They can run on your local network or a VPN.
+          Custom servers need OpenAI-compatible endpoints: /audio/speech returning 16-bit WAV for
+          read aloud (Kokoro-FastAPI, openedai-speech) and /audio/transcriptions for dictation
+          (faster-whisper, Speaches). They can run on your local network or a VPN.
         </Text>
       </ScrollView>
     </View>

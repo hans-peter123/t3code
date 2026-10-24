@@ -285,8 +285,8 @@ const SETTINGS_SCREENS = {
   }),
   SettingsSpeech: createNativeStackScreen({
     screen: SettingsSpeechRouteScreen,
-    linking: "settings/read-aloud",
-    options: settingsPage("Read aloud"),
+    linking: "settings/speech",
+    options: settingsPage("Speech"),
   }),
   SettingsFollowUp: createNativeStackScreen({
     screen: SettingsFollowUpRouteScreen,

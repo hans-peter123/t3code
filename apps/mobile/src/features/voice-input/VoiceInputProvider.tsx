@@ -15,6 +15,7 @@ import {
 } from "../../lib/microphonePriority";
 import { getLocalVoiceTranscriber } from "../../native/voiceTranscription";
 import { createVoiceRecorder } from "../../native/voiceRecorder";
+import { getVoiceTranscriber, useVoiceTranscriberAvailable } from "../speech/speechTranscription";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { getNativeShowcaseScene } from "../showcase/nativeShowcaseScene";
 import {
@@ -122,9 +123,9 @@ const voiceInputAtom = Atom.make((get) => {
     recorder,
     getTranscriber: () => {
       const route = registry.get(voiceRouteAtom);
-      if (route) return route.transcriber;
-      const transcriber = registry.get(localVoiceTranscriberAtom);
-      return transcriber === "checking" ? null : transcriber;
+      const local = registry.get(localVoiceTranscriberAtom);
+      // A dictation provider chosen in the fork's Voice settings wins over both.
+      return getVoiceTranscriber(route ? route.transcriber : local === "checking" ? null : local);
     },
     requestPermission: permission.requestPermission,
     configureRecording: async () => {
@@ -164,9 +165,10 @@ export function useGlobalVoiceInput() {
   const { session, audioLevels } = useAtomValue(voiceInputAtom);
   const isTranscriberAvailable = useAtomValue(voiceInputAvailableAtom);
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  const transcriberAvailable = useVoiceTranscriberAvailable(isTranscriberAvailable);
   return {
     ...snapshot,
-    isAvailable: isTranscriberAvailable || getNativeShowcaseScene() !== null,
+    isAvailable: transcriberAvailable || getNativeShowcaseScene() !== null,
     audioLevels,
     isBusy: voiceInputBlocksSubmission(snapshot.state),
     session,
