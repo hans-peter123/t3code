@@ -241,7 +241,7 @@ function useSettingsIndexSections(): SettingsListSection[] {
           ? [
               page("SettingsKeyboard", "keyboard", "Keyboard"),
               page("SettingsMicrophone", "mic", "Microphone"),
-              page("SettingsSpeech", "speaker.wave.2", "Read aloud"),
+              page("SettingsSpeech", "speaker.wave.2", "Voice"),
             ]
           : []),
       ],

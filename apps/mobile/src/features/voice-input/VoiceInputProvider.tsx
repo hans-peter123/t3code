@@ -26,7 +26,7 @@ import {
   preferredMicrophoneInput,
   rememberMicrophones,
 } from "../../lib/microphonePriority";
-import { getLocalVoiceTranscriber } from "../../native/voiceTranscription";
+import { getVoiceTranscriber, useVoiceTranscriberAvailable } from "../speech/speechTranscription";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { getNativeShowcaseScene } from "../showcase/nativeShowcaseScene";
 import {
@@ -128,7 +128,7 @@ function useVoiceInputRuntime() {
     });
     session = new VoiceInputSession({
       recorder,
-      getTranscriber: getLocalVoiceTranscriber,
+      getTranscriber: getVoiceTranscriber,
       requestPermission: async () => {
         const permission = await requestRecordingPermissionsAsync();
         return { granted: permission.granted, canAskAgain: permission.canAskAgain };
@@ -230,11 +230,12 @@ function useVoiceInputRuntime() {
     return () => clearInterval(intervalId);
   }, [audioLevels, controller, recorder, state.phase]);
 
+  const transcriberAvailable = useVoiceTranscriberAvailable();
   const stop = useCallback(() => controller.stop(), [controller]);
   const cancel = useCallback(() => controller.cancel(), [controller]);
 
   return {
-    isAvailable: getLocalVoiceTranscriber() !== null || getNativeShowcaseScene() !== null,
+    isAvailable: transcriberAvailable || getNativeShowcaseScene() !== null,
     state,
     audioLevels,
     elapsedSeconds,
