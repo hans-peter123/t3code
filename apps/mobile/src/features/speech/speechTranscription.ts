@@ -16,11 +16,19 @@ import {
   useSpeechSettings,
 } from "./speechSettings";
 
-function recordingPart(uri: string) {
-  // The app's global fetch is Expo's, whose FormData takes Blobs or expo-file-system Files
-  // (anything with `bytes()`), not React Native's `{ uri }` file objects.
+/**
+ * The app's global fetch is Expo's. Its FormData serializer accepts strings, Blobs, or objects
+ * with `bytes()`, and rejects React Native's `{ uri }` file shape. A plain object keeps that
+ * check independent of how the native File class is exposed.
+ */
+export function recordingPart(uri: string) {
   const file = new File(uri);
-  return { file: file as unknown as Blob, name: file.name || "recording.m4a" };
+  const name = file.name || "recording.m4a";
+  const extension = name.split(".").pop()?.toLowerCase();
+  const type =
+    extension === "wav" ? "audio/wav" : extension === "caf" ? "audio/x-caf" : "audio/m4a";
+  const part = { name, type, bytes: () => file.bytes() };
+  return { file: part as unknown as Blob, name };
 }
 
 /** Uploads a local recording to the provider's speech-to-text endpoint. */
