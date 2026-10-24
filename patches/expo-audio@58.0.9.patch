@@ -484,3 +484,24 @@ index 0000000000000000000000000000000000000000..4dd0567e2170770e9b0f6a17dc4581bc
 +    assertEquals(recordingInputUid(first, listOf(first)), recordingInputUid(reconnected, listOf(reconnected)))
 +  }
 +}
+diff --git a/ios/MediaController.swift b/ios/MediaController.swift
+--- a/ios/MediaController.swift
++++ b/ios/MediaController.swift
+@@ -329,7 +329,7 @@
+     }
+     remoteCommandTargets.append((remoteCommandCenter.changePlaybackPositionCommand, changePlaybackPositionTarget))
+ 
+-    remoteCommandCenter.skipForwardCommand.preferredIntervals = [10.0]
++    remoteCommandCenter.skipForwardCommand.preferredIntervals = [15.0]
+     let skipForwardTarget = remoteCommandCenter.skipForwardCommand.addTarget { [weak self] event in
+       guard let playable = self?.activePlayable,
+       let event = event as? MPSkipIntervalCommandEvent else {
+@@ -344,7 +344,7 @@
+     }
+     remoteCommandTargets.append((remoteCommandCenter.skipForwardCommand, skipForwardTarget))
+ 
+-    remoteCommandCenter.skipBackwardCommand.preferredIntervals = [10.0]
++    remoteCommandCenter.skipBackwardCommand.preferredIntervals = [15.0]
+     let skipBackwardTarget = remoteCommandCenter.skipBackwardCommand.addTarget { [weak self] event in
+       guard let playable = self?.activePlayable,
+       let event = event as? MPSkipIntervalCommandEvent else {
