@@ -1,6 +1,11 @@
-# Persönlicher Fork: T3 Code mit Vorlesen (TTS)
+# Persönlicher Fork: T3 Code mit Vorlesen (TTS) und Diktieren (STT)
 
-Dieser Fork ergänzt die iOS-App um **Vorlesen** von Assistenten-Nachrichten:
+Dieser Fork ergänzt iOS-App, Web und macOS-Desktop um **Vorlesen** und **Diktieren**.
+Gemeinsame Logik: `packages/client-runtime/src/speech/`; Web/Desktop: `apps/web/src/speech/`,
+Einstellungen unter **Settings → Voice**. Die Desktop-App schickt Provider-Anfragen über den
+Hauptprozess (`apps/desktop/src/ipc/methods/speechRequest.ts`), damit eigene Server kein CORS brauchen.
+
+iOS:
 
 - Lautsprecher-Knopf neben „Kopieren“ unter jeder Antwort; während der Wiedergabe: −15 s, Pause/Weiter, +15 s, Stopp, Zeit.
 - Wiedergabe läuft im Hintergrund weiter und erscheint auf dem Sperrbildschirm / im Kontrollzentrum (Play/Pause, ±15 s, Scrubben).
@@ -45,6 +50,17 @@ Voraussetzungen (einmalig):
 
 `T3CODE_MOBILE_UPDATES_ENABLED=0` ist wichtig: sonst könnte die App offizielle OTA-Updates laden, die den
 Fork-Code ersetzen.
+
+## macOS-Desktop bauen
+
+```bash
+fork/build-desktop.sh   # baut release/T3-Code-<version>-arm64.dmg und zeigt es im Finder
+```
+
+Der Build ist unsigniert (lokal gebaut startet er trotzdem) und hat keinen Update-Feed, sucht also
+nicht nach offiziellen Updates. Er ersetzt die offizielle App (gleiche Bundle-ID, gleiche Daten in
+`~/.t3`). Vorher die laufende App beenden. Beim ersten Start fragt macOS ggf. nach dem Schlüsselbund
+(„Immer erlauben“) und beim ersten Diktat nach dem Mikrofon.
 
 ## Bekannte Grenzen eigener Builds
 
