@@ -62,7 +62,7 @@ describe("transcribeRecording", () => {
         "file:///tmp/r.m4a",
         new AbortController().signal,
       ),
-    ).rejects.toThrow("Transcription returned 401: bad key");
+    ).rejects.toThrow("Transcription at api.elevenlabs.io returned 401: bad key");
     expect((fetch.mock.calls[0] as unknown as [string])[0]).toBe(
       "https://api.elevenlabs.io/v1/speech-to-text",
     );
