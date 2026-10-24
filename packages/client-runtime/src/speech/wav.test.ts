@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { encodeWav, parseWav } from "./wav";
+import { encodeWav, parseWav } from "./wav.ts";
 
 const format = { sampleRate: 24_000, channels: 1 };
 

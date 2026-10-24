@@ -8,18 +8,15 @@ import {
 } from "expo-audio";
 import { useSyncExternalStore } from "react";
 
-import { SPEECH_CHUNK_LENGTH, synthesizeSpeech } from "./speechProviders";
+import { speechCacheKeySource, synthesizeMessageWav } from "@t3tools/client-runtime/speech";
 import {
   activeSpeechProvider,
   loadSpeechSettings,
   speechProviderProblem,
   type SpeechProviderConfig,
 } from "./speechSettings";
-import { markdownToSpeechText, splitSpeechText } from "./speechText";
-import { encodeWav, type PcmAudio } from "./wav";
 
 export const SPEECH_SKIP_SECONDS = 15;
-const SYNTHESIS_CONCURRENCY = 3;
 const CACHE_DIRECTORY = "speech";
 const CACHE_LIMIT = 24;
 
@@ -73,55 +70,23 @@ function ensurePlayer(): AudioPlayer {
   return player;
 }
 
-async function mapConcurrent<T, R>(
-  items: readonly T[],
-  limit: number,
-  map: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = Array.from({ length: items.length });
-  let next = 0;
-  const worker = async () => {
-    while (next < items.length) {
-      const index = next++;
-      results[index] = await map(items[index]!, index);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
-}
-
 async function speechFile(provider: SpeechProviderConfig, markdown: string, signal: AbortSignal) {
   const { Directory, File, Paths } = await import("expo-file-system");
-  const text = markdownToSpeechText(markdown);
-  if (!text) throw new Error("This message has nothing to read aloud.");
   const key = await digestStringAsync(
     CryptoDigestAlgorithm.SHA256,
-    JSON.stringify([provider.kind, provider.baseUrl, provider.model, provider.voice, text]),
+    speechCacheKeySource(provider, markdown),
   );
   const directory = new Directory(Paths.cache, CACHE_DIRECTORY);
   directory.create({ idempotent: true, intermediates: true });
   const file = new File(directory, `${key}.wav`);
   if (file.exists) return file.uri;
 
-  const chunks = splitSpeechText(text, SPEECH_CHUNK_LENGTH);
-  const pieces = await mapConcurrent<string, PcmAudio>(
-    chunks,
-    SYNTHESIS_CONCURRENCY,
-    (chunk, index) =>
-      synthesizeSpeech(provider, {
-        text: chunk,
-        previousText: chunks[index - 1],
-        nextText: chunks[index + 1],
-        signal,
-      }),
-  );
-  signal.throwIfAborted();
-
+  const wav = await synthesizeMessageWav(provider, markdown, signal);
   const cached = directory.list().filter((entry) => entry instanceof File);
   if (cached.length >= CACHE_LIMIT) {
     for (const entry of cached) entry.delete();
   }
-  await file.write(encodeWav(pieces));
+  await file.write(wav);
   return file.uri;
 }
 
