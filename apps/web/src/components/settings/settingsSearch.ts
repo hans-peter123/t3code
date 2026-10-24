@@ -25,6 +25,7 @@ export type SettingsPath =
   | "/settings/scheduled-tasks"
   | "/settings/source-control"
   | "/settings/storage"
+  | "/settings/voice"
   | "/settings/connections"
   | "/settings/archived";
 
@@ -83,6 +84,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/scheduled-tasks": "Scheduled Tasks",
   "/settings/source-control": "Source Control",
   "/settings/storage": "Storage",
+  "/settings/voice": "Voice",
   "/settings/connections": "Connections",
   "/settings/archived": "Archive",
 };
@@ -1007,6 +1009,30 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/archived",
     searchTerms: ["restore reopen deleted history projects"],
   },
+  {
+    id: "voice-read-aloud",
+    title: "Read aloud with",
+    to: "/settings/voice",
+    searchTerms: ["text to speech tts read aloud voice openai elevenlabs speak listen"],
+  },
+  {
+    id: "voice-playback-speed",
+    title: "Playback speed",
+    to: "/settings/voice",
+    searchTerms: ["read aloud speed rate faster slower"],
+  },
+  {
+    id: "voice-dictation",
+    title: "Dictate with",
+    to: "/settings/voice",
+    searchTerms: ["speech to text stt dictation microphone transcribe whisper voice input"],
+  },
+  {
+    id: "voice-providers",
+    title: "Voice providers",
+    to: "/settings/voice",
+    searchTerms: ["api key openai elevenlabs whisper kokoro server tts stt"],
+  },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;
 
 export type SettingsSearchItemId = (typeof SETTINGS_SEARCH_ITEMS)[number]["id"];
@@ -1024,6 +1050,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/integrations": null,
   "/settings/source-control": "environment-defaults",
   "/settings/storage": "project-defaults",
+  "/settings/voice": null,
   "/settings/connections": "connections",
   "/settings/scheduled-tasks": null,
   "/settings/archived": "project-defaults",
