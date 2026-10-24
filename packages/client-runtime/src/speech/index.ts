@@ -1,4 +1,4 @@
-export { markdownToSpeechText, splitSpeechText } from "./text.ts";
+export { markdownToSpeechText, planSpeechChunks, splitSpeechText } from "./text.ts";
 export { encodeWav, parseWav, type PcmAudio, type PcmFormat } from "./wav.ts";
 export {
   activeSpeechProvider,
@@ -22,9 +22,28 @@ export {
   listElevenLabsVoices,
   silentWav,
   setSpeechFetch,
+  parseRetryAfter,
   speechCacheKeySource,
-  synthesizeMessageWav,
+  SpeechProviderError,
   synthesizeSpeech,
   transcribeAudio,
   type SpeechVoice,
 } from "./providers.ts";
+export {
+  planMessageSpeech,
+  SPEECH_CHUNK_LENGTH,
+  SPEECH_LEAD_IN_LENGTHS,
+  synthesizeMessageWav,
+  synthesizeSpeechParts,
+  withSpeechRetry,
+  type SpeechDelay,
+  type SpeechPartsOptions,
+  type SpeechRetryOptions,
+} from "./stream.ts";
+export {
+  locateSpeechTime,
+  pcmDuration,
+  speechPartStart,
+  speechTimelineDuration,
+  type SpeechTimelinePosition,
+} from "./timeline.ts";

@@ -113,7 +113,7 @@ export const ReadAloudButton = memo(function ReadAloudButton(props: {
       >
         <RotateCcwIcon className="size-3" />
       </ControlButton>
-      {preparing ? (
+      {preparing || playback.buffering ? (
         <ControlButton label="Preparing audio" disabled onClick={() => {}}>
           <LoaderIcon className="size-3 animate-spin" />
         </ControlButton>
