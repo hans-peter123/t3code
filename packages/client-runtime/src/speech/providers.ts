@@ -1,6 +1,7 @@
 // @effect-diagnostics globalFetch:off - shared by React Native and the web, which call plain fetch.
+// @effect-diagnostics globalDate:off - Retry-After dates are compared with the wall clock.
 import type { SpeechProviderConfig } from "./settings.ts";
-import { markdownToSpeechText, splitSpeechText } from "./text.ts";
+import { markdownToSpeechText } from "./text.ts";
 import { encodeWav, parseWav, type PcmAudio } from "./wav.ts";
 
 type SpeechFetch = (url: string, init: RequestInit) => Promise<Response>;
@@ -11,9 +12,6 @@ let speechFetch: SpeechFetch = (url, init) => fetch(url, init);
 export function setSpeechFetch(impl: SpeechFetch): void {
   speechFetch = impl;
 }
-
-/** Kept under every provider's per-request limit (gpt-4o-mini-tts takes about 2000 tokens). */
-export const SPEECH_CHUNK_LENGTH = 1500;
 
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const ELEVENLABS_BASE_URL = "https://api.elevenlabs.io/v1";
@@ -32,7 +30,30 @@ function trimSlash(url: string): string {
   return url.trim().replace(/\/+$/, "");
 }
 
-async function responseError(response: Response, provider: string): Promise<Error> {
+/** A provider answered with an error status; 429 and 5xx are worth retrying. */
+export class SpeechProviderError extends Error {
+  readonly status: number;
+  /** The provider's `Retry-After`, when it sent one. */
+  readonly retryAfterMs: number | undefined;
+
+  constructor(message: string, status: number, retryAfterMs?: number) {
+    super(message);
+    this.name = "SpeechProviderError";
+    this.status = status;
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+/** Reads `Retry-After` as either seconds or an HTTP date. */
+export function parseRetryAfter(value: string | null, now = Date.now()): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value.trim());
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? undefined : Math.max(0, date - now);
+}
+
+async function responseError(response: Response, provider: string): Promise<SpeechProviderError> {
   let detail = "";
   try {
     const text = (await response.text()).trim();
@@ -48,8 +69,10 @@ async function responseError(response: Response, provider: string): Promise<Erro
       detail = text;
     }
   } catch {}
-  return new Error(
+  return new SpeechProviderError(
     `${provider} returned ${response.status}${detail ? `: ${detail}` : ""}`.slice(0, 400),
+    response.status,
+    parseRetryAfter(response.headers.get("retry-after")),
   );
 }
 
@@ -127,47 +150,6 @@ export async function listElevenLabsVoices(apiKey: string): Promise<SpeechVoice[
   return (body.voices ?? []).flatMap((voice) =>
     voice.voice_id ? [{ id: voice.voice_id, name: voice.name ?? voice.voice_id }] : [],
   );
-}
-
-async function mapConcurrent<T, R>(
-  items: readonly T[],
-  limit: number,
-  map: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = Array.from({ length: items.length });
-  let next = 0;
-  const worker = async () => {
-    while (next < items.length) {
-      const index = next++;
-      results[index] = await map(items[index]!, index);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
-}
-
-/**
- * Speaks a whole assistant message as one WAV file. Long text is split and synthesized in
- * parallel, then joined, so seeking works across the entire message.
- */
-export async function synthesizeMessageWav(
-  provider: SpeechProviderConfig,
-  markdown: string,
-  signal: AbortSignal,
-): Promise<Uint8Array> {
-  const text = markdownToSpeechText(markdown);
-  if (!text) throw new Error("This message has nothing to read aloud.");
-  const chunks = splitSpeechText(text, SPEECH_CHUNK_LENGTH);
-  const pieces = await mapConcurrent(chunks, 3, (chunk, index) =>
-    synthesizeSpeech(provider, {
-      text: chunk,
-      previousText: chunks[index - 1],
-      nextText: chunks[index + 1],
-      signal,
-    }),
-  );
-  signal.throwIfAborted();
-  return encodeWav(pieces);
 }
 
 /** A stable key for caching a message's audio per provider voice. */
