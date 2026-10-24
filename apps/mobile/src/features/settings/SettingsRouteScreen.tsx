@@ -171,6 +171,7 @@ function SettingsIndexSections() {
           <>
             <SettingsRow icon="keyboard" label="Keyboard" target="SettingsKeyboard" />
             <SettingsRow icon="mic" label="Microphone" target="SettingsMicrophone" />
+            <SettingsRow icon="speaker.wave.2" label="Read aloud" target="SettingsSpeech" />
           </>
         ) : null}
       </SettingsSection>
