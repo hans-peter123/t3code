@@ -103,15 +103,20 @@ import IconPhoto from "@tabler/icons-react-native/IconPhoto";
 import IconPin from "@tabler/icons-react-native/IconPin";
 import IconPinnedOff from "@tabler/icons-react-native/IconPinnedOff";
 import IconPlayerPause from "@tabler/icons-react-native/IconPlayerPause";
+import IconPlayerPauseFilled from "@tabler/icons-react-native/IconPlayerPauseFilled";
 import IconPlayerPlay from "@tabler/icons-react-native/IconPlayerPlay";
+import IconPlayerPlayFilled from "@tabler/icons-react-native/IconPlayerPlayFilled";
 import IconPlayerStopFilled from "@tabler/icons-react-native/IconPlayerStopFilled";
 import IconPlus from "@tabler/icons-react-native/IconPlus";
 import IconQrcode from "@tabler/icons-react-native/IconQrcode";
 import IconRefresh from "@tabler/icons-react-native/IconRefresh";
 import IconRobot from "@tabler/icons-react-native/IconRobot";
+import IconRewindBackward15 from "@tabler/icons-react-native/IconRewindBackward15";
+import IconRewindForward15 from "@tabler/icons-react-native/IconRewindForward15";
 import IconSearch from "@tabler/icons-react-native/IconSearch";
 import IconShare from "@tabler/icons-react-native/IconShare";
 import IconServer from "@tabler/icons-react-native/IconServer";
+import IconVolume from "@tabler/icons-react-native/IconVolume";
 import IconSettings from "@tabler/icons-react-native/IconSettings";
 import IconStack2 from "@tabler/icons-react-native/IconStack2";
 import IconStar from "@tabler/icons-react-native/IconStar";
@@ -248,6 +253,11 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   "pin.slash": IconPinnedOff,
   play: IconPlayerPlay,
   pause: IconPlayerPause,
+  "play.fill": IconPlayerPlayFilled,
+  "pause.fill": IconPlayerPauseFilled,
+  "gobackward.15": IconRewindBackward15,
+  "goforward.15": IconRewindForward15,
+  "speaker.wave.2": IconVolume,
   plus: IconPlus,
   minus: IconMinus,
   "slash.circle": IconBan,
