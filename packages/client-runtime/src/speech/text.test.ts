@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { markdownToSpeechText, splitSpeechText } from "./text.ts";
+import { markdownToSpeechText, planSpeechChunks, splitSpeechText } from "./text.ts";
 
 describe("markdownToSpeechText", () => {
   it("drops code blocks, images, and markup but keeps readable text", () => {
@@ -51,5 +51,36 @@ describe("splitSpeechText", () => {
 
   it("breaks a word longer than the limit", () => {
     expect(splitSpeechText("abcdefghij", 4)).toEqual(["abcd", "efgh", "ij"]);
+  });
+});
+
+describe("planSpeechChunks", () => {
+  const sentence = (n: number) => `Sentence number ${n} says a few words.`; // 37-38 chars
+
+  it("keeps a short message in one request", () => {
+    expect(planSpeechChunks("Short answer. Done.", [400, 800], 1500)).toEqual([
+      "Short answer. Done.",
+    ]);
+  });
+
+  it("starts with short pieces that end at sentences, then larger ones", () => {
+    const text = Array.from({ length: 120 }, (_, n) => sentence(n)).join(" ");
+    const chunks = planSpeechChunks(text, [400, 800], 1500);
+    expect(chunks[0]!.length).toBeLessThanOrEqual(400);
+    expect(chunks[0]!.length).toBeGreaterThan(300);
+    expect(chunks[0]).toMatch(/words\.$/);
+    expect(chunks[1]!.length).toBeLessThanOrEqual(800);
+    expect(chunks[1]!.length).toBeGreaterThan(700);
+    expect(chunks[1]).toMatch(/^Sentence number \d+ says/);
+    for (const chunk of chunks.slice(2)) expect(chunk.length).toBeLessThanOrEqual(1500);
+    expect(chunks[2]!.length).toBeGreaterThan(1400);
+    expect(chunks.join(" ")).toBe(text);
+  });
+
+  it("falls back to a word boundary when a sentence is too long", () => {
+    const text = `${"word ".repeat(200)}end`;
+    const chunks = planSpeechChunks(text, [50], 1500);
+    expect(chunks[0]).toBe("word ".repeat(10).trim());
+    expect(chunks.join(" ")).toBe(text);
   });
 });

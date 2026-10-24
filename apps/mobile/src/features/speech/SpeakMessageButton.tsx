@@ -122,7 +122,7 @@ export const SpeakMessageButton = memo(function SpeakMessageButton(props: {
         disabled={preparing}
         onPress={() => seekSpeech(-SPEECH_SKIP_SECONDS)}
       />
-      {preparing ? (
+      {preparing || playback.buffering ? (
         <View
           accessible
           accessibilityLabel="Preparing audio"
