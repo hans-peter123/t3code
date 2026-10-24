@@ -355,9 +355,9 @@ const SettingsContentStack = createV5SheetStackNavigator({
     }),
     SettingsSpeech: createNativeStackScreen({
       screen: SettingsSpeechRouteScreen,
-      linking: "read-aloud",
+      linking: "voice",
       options: {
-        title: "Read aloud",
+        title: "Voice",
       },
     }),
     SettingsFollowUp: createNativeStackScreen({

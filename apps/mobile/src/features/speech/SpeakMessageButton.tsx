@@ -14,6 +14,7 @@ import {
   stopSpeech,
   useSpeechPlayback,
 } from "./speechPlayback";
+import { useSpeechSettings } from "./speechSettings";
 
 function formatTime(seconds: number): string {
   const whole = Math.max(0, Math.floor(seconds));
@@ -66,6 +67,7 @@ export const SpeakMessageButton = memo(function SpeakMessageButton(props: {
 }) {
   const navigation = useNavigation();
   const playback = useSpeechPlayback(props.messageId);
+  const settings = useSpeechSettings();
   const size = props.buttonSize ?? 28;
   const iconSize = props.iconSize ?? 13;
 
@@ -91,6 +93,11 @@ export const SpeakMessageButton = memo(function SpeakMessageButton(props: {
       Dialog.alert("Could not read aloud", error instanceof Error ? error.message : "Try again.");
     });
   };
+
+  // Turned off in settings; with no provider yet the button still leads to setup.
+  if (playback.phase === "idle" && settings.providers.length > 0 && !settings.activeProviderId) {
+    return null;
+  }
 
   if (playback.phase === "idle") {
     return (

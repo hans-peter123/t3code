@@ -7,7 +7,12 @@ vi.mock("expo-secure-store", () => ({
   setItemAsync: async (key: string, value: string) => void store.set(key, value),
 }));
 
-import { activeSpeechProvider, loadSpeechSettings, updateSpeechSettings } from "./speechSettings";
+import {
+  activeSpeechProvider,
+  loadSpeechSettings,
+  transcriptionProvider,
+  updateSpeechSettings,
+} from "./speechSettings";
 
 describe("speechSettings", () => {
   it("returns providers added after the first load", async () => {
@@ -23,11 +28,31 @@ describe("speechSettings", () => {
           baseUrl: "",
           model: "gpt-4o-mini-tts",
           voice: "coral",
+          transcriptionModel: "gpt-4o-transcribe",
         },
       ],
+      activeProviderId: "a",
     }));
     const settings = await loadSpeechSettings();
     expect(activeSpeechProvider(settings)?.id).toBe("a");
     expect(JSON.parse(store.get("t3code.speech.settings")!).providers).toHaveLength(1);
+  });
+
+  it("keeps read aloud off, defaults dictation, and fills models for older entries", async () => {
+    await updateSpeechSettings(
+      () =>
+        ({
+          providers: [{ id: "b", kind: "openai-compatible", baseUrl: "https://stt.example/v1" }],
+          activeProviderId: null,
+          transcriptionProviderId: "b",
+          playbackRate: 1,
+        }) as never,
+    );
+    const settings = await loadSpeechSettings();
+    expect(settings.activeProviderId).toBeNull();
+    expect(transcriptionProvider(settings)?.transcriptionModel).toBe("whisper-1");
+
+    await updateSpeechSettings((current) => ({ ...current, providers: [] }));
+    expect((await loadSpeechSettings()).transcriptionProviderId).toBeNull();
   });
 });
