@@ -127,3 +127,24 @@ diff --git a/android/src/main/java/expo/modules/audio/AudioModule.kt b/android/s
 +      Function("pause") { player: AudioPlayer, /* deactivateSession - iOS only */ _: Boolean? ->
          runOnMain {
            player.isPaused = false
+diff --git a/ios/MediaController.swift b/ios/MediaController.swift
+--- a/ios/MediaController.swift
++++ b/ios/MediaController.swift
+@@ -329,7 +329,7 @@
+     }
+     remoteCommandTargets.append((remoteCommandCenter.changePlaybackPositionCommand, changePlaybackPositionTarget))
+ 
+-    remoteCommandCenter.skipForwardCommand.preferredIntervals = [10.0]
++    remoteCommandCenter.skipForwardCommand.preferredIntervals = [15.0]
+     let skipForwardTarget = remoteCommandCenter.skipForwardCommand.addTarget { [weak self] event in
+       guard let playable = self?.activePlayable,
+       let event = event as? MPSkipIntervalCommandEvent else {
+@@ -344,7 +344,7 @@
+     }
+     remoteCommandTargets.append((remoteCommandCenter.skipForwardCommand, skipForwardTarget))
+ 
+-    remoteCommandCenter.skipBackwardCommand.preferredIntervals = [10.0]
++    remoteCommandCenter.skipBackwardCommand.preferredIntervals = [15.0]
+     let skipBackwardTarget = remoteCommandCenter.skipBackwardCommand.addTarget { [weak self] event in
+       guard let playable = self?.activePlayable,
+       let event = event as? MPSkipIntervalCommandEvent else {
