@@ -33,6 +33,7 @@ export type SettingsPath =
   | "/settings/scheduled-tasks"
   | "/settings/source-control"
   | "/settings/worktrees"
+  | "/settings/speech"
   | "/settings/connections"
   | "/settings/access"
   | "/settings/secrets"
@@ -108,6 +109,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/scheduled-tasks": msg("Scheduled tasks"),
   "/settings/source-control": msg("Source control"),
   "/settings/worktrees": msg("Worktrees"),
+  "/settings/speech": msg("Speech"),
   "/settings/connections": msg("Environments"),
   "/settings/access": msg("Sharing & access"),
   "/settings/secrets": msg("Secrets"),
@@ -132,6 +134,7 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
       "/settings/diffs",
       "/settings/keybindings",
       "/settings/voice",
+      "/settings/speech",
       "/settings/snap-shot",
     ],
   },
@@ -1337,6 +1340,30 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/archived",
     searchTerms: ["restore reopen deleted history projects"],
   },
+  {
+    id: "voice-read-aloud",
+    title: "Read aloud with",
+    to: "/settings/speech",
+    searchTerms: ["text to speech tts read aloud voice openai elevenlabs speak listen"],
+  },
+  {
+    id: "voice-playback-speed",
+    title: "Playback speed",
+    to: "/settings/speech",
+    searchTerms: ["read aloud speed rate faster slower"],
+  },
+  {
+    id: "voice-dictation",
+    title: "Dictate with",
+    to: "/settings/speech",
+    searchTerms: ["speech to text stt dictation microphone transcribe whisper voice input"],
+  },
+  {
+    id: "voice-providers",
+    title: "Voice providers",
+    to: "/settings/speech",
+    searchTerms: ["api key openai elevenlabs whisper kokoro server tts stt"],
+  },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;
 
 export type SettingsSearchItemId = (typeof SETTINGS_SEARCH_ITEMS)[number]["id"];
@@ -1359,6 +1386,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/devices": null,
   "/settings/source-control": "environment-defaults",
   "/settings/worktrees": "project-defaults",
+  "/settings/speech": null,
   "/settings/connections": "connections",
   "/settings/access": "connections",
   "/settings/secrets": null,

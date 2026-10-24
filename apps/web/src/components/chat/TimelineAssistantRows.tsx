@@ -21,6 +21,7 @@ import {
   useThreadShell,
 } from "../../state/entities";
 import { MessageCopyButton } from "./MessageCopyButton";
+import { ReadAloudButton } from "../../speech/ReadAloudButton";
 import { AssistantCitationSource } from "./AssistantCitationSource";
 import { resolveAssistantMessageCopyState } from "./MessagesTimeline.logic";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -197,6 +198,9 @@ function AssistantMessageMeta({
         showCopyButton={showCopyButton}
         streaming={copyStreaming}
       />
+      {showCopyButton && !message.streaming && message.text ? (
+        <AssistantReadAloudButton message={message} />
+      ) : null}
       {projectedItem?.item.type === "assistant_message" ? (
         <AssistantForkButton projectedItem={projectedItem} />
       ) : null}
@@ -268,6 +272,14 @@ function AssistantStatusBadge({ status }: { status: string }) {
     <span className="rounded-full border border-border/70 px-1.5 py-0.5 font-mono text-3xs text-muted-foreground">
       {status}
     </span>
+  );
+}
+
+function AssistantReadAloudButton({ message }: { message: ChatMessage }) {
+  const ctx = use(TimelineRowCtx);
+  const thread = useThreadShell(ctx.threadRef);
+  return (
+    <ReadAloudButton messageId={message.id} markdown={message.text} title={thread?.title ?? ""} />
   );
 }
 

@@ -134,6 +134,7 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   },
   revealWindow: () => ipcRenderer.invoke(IpcChannels.REVEAL_WINDOW_CHANNEL),
   getPrimaryPasteEnabled: () => primaryPasteEnabled,
+  speechRequest: (request) => ipcRenderer.invoke(IpcChannels.SPEECH_REQUEST_CHANNEL, request),
   getSystemLocale: () => {
     const result = ipcRenderer.sendSync(IpcChannels.GET_SYSTEM_LOCALE_CHANNEL);
     return typeof result === "string" ? result : null;

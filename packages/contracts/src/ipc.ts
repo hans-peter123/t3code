@@ -1070,6 +1070,13 @@ export interface DesktopBridge {
   getPreferredSystemLanguages: () => readonly string[];
   /** False when the OS turned off middle-click PRIMARY paste (`gtk-enable-primary-paste`). */
   getPrimaryPasteEnabled?: () => boolean;
+  /** Voice provider HTTP without renderer CORS; see Settings > Voice. */
+  speechRequest?: (request: {
+    url: string;
+    method: "GET" | "POST";
+    headers: Record<string, string>;
+    body: Uint8Array | null;
+  }) => Promise<{ status: number; contentType: string; body: Uint8Array }>;
   getLocalEnvironmentBootstraps: () => readonly DesktopEnvironmentBootstrap[];
   getLocalEnvironmentEnabled: () => boolean;
   setLocalEnvironmentEnabled: (enabled: boolean) => Promise<void>;
