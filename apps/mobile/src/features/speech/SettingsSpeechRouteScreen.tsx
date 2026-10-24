@@ -10,8 +10,14 @@ import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { SettingsActionRow } from "../settings/components/SettingsActionRow";
 import { SettingsChoiceRow } from "../settings/components/SettingsChoiceRow";
 import { SettingsSection } from "../settings/components/SettingsSection";
-import { listElevenLabsVoices, type SpeechVoice } from "@t3tools/client-runtime/speech";
+import {
+  describeTranscriptionTest,
+  listElevenLabsVoices,
+  silentWav,
+  type SpeechVoice,
+} from "@t3tools/client-runtime/speech";
 import { setSpeechPlaybackRate, speakMessage, stopSpeech } from "./speechPlayback";
+import { transcribeRecording } from "./speechTranscription";
 import {
   OPENAI_VOICES,
   PLAYBACK_RATES,
@@ -23,6 +29,22 @@ import {
   updateSpeechSettings,
   useSpeechSettings,
 } from "./speechSettings";
+
+/** Uploads a silent recording and reports exactly what the provider answered. */
+async function testDictation(provider: SpeechProviderConfig): Promise<string> {
+  const { File, Paths } = await import("expo-file-system");
+  const file = new File(Paths.cache, "dictation-test.wav");
+  if (file.exists) file.delete();
+  await file.write(silentWav());
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000);
+  const [result] = await Promise.allSettled([
+    transcribeRecording(provider, file.uri, controller.signal),
+  ]);
+  clearTimeout(timeout);
+  file.delete();
+  return describeTranscriptionTest(result!);
+}
 
 const SAMPLE_TEXT = "Hi! This is how T3 Code reads your messages aloud.";
 
@@ -67,6 +89,7 @@ function Field(props: {
   readonly secure?: boolean;
   readonly keyboardType?: "default" | "url";
   readonly separated?: boolean;
+  readonly hint?: string;
   readonly onChange: (value: string) => void;
 }) {
   return (
@@ -87,6 +110,7 @@ function Field(props: {
         className="min-h-10 rounded-xl px-3 py-2 text-base text-foreground"
         onChangeText={props.onChange}
       />
+      {props.hint ? <Text className="text-xs text-foreground-muted">{props.hint}</Text> : null}
     </View>
   );
 }
@@ -142,6 +166,8 @@ function ProviderSettings(props: { readonly provider: SpeechProviderConfig }) {
   const { provider } = props;
   const kind = SPEECH_PROVIDER_KINDS[provider.kind];
   const [testing, setTesting] = useState(false);
+  const [testingDictation, setTestingDictation] = useState(false);
+  const transcriptionProblem = transcriptionProviderProblem(provider);
   // A picked voice remounts the uncontrolled voice field; typing must not.
   const [voicePicks, setVoicePicks] = useState(0);
   const problem = speechProviderProblem(provider);
@@ -171,7 +197,12 @@ function ProviderSettings(props: { readonly provider: SpeechProviderConfig }) {
           placeholder={provider.kind === "elevenlabs" ? "sk_…" : "sk-…"}
           secure
           separated
-          onChange={(apiKey) => editProvider(provider.id, { apiKey })}
+          hint={
+            provider.apiKey.trim()
+              ? `Saved key ending in …${provider.apiKey.trim().slice(-4)}`
+              : "No key saved"
+          }
+          onChange={(apiKey) => editProvider(provider.id, { apiKey: apiKey.trim() })}
         />
         <Field
           label="Speech model (read aloud)"
@@ -209,7 +240,16 @@ function ProviderSettings(props: { readonly provider: SpeechProviderConfig }) {
         </SettingsSection>
       ) : null}
 
-      <SettingsSection footer={problem ? `Read aloud: ${problem}` : undefined}>
+      <SettingsSection
+        footer={
+          [
+            problem ? `Read aloud: ${problem}` : null,
+            transcriptionProblem ? `Dictation: ${transcriptionProblem}` : null,
+          ]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
+      >
         <SettingsActionRow
           icon="play"
           label="Play sample"
@@ -229,6 +269,19 @@ function ProviderSettings(props: { readonly provider: SpeechProviderConfig }) {
                 ),
               )
               .finally(() => setTesting(false));
+          }}
+        />
+        <SettingsActionRow
+          icon="mic"
+          label="Test dictation"
+          description="Sends one second of silence to the transcription model"
+          disabled={transcriptionProblem !== null}
+          loading={testingDictation}
+          onPress={() => {
+            setTestingDictation(true);
+            testDictation(provider)
+              .then((report) => Dialog.alert("Dictation test", report))
+              .finally(() => setTestingDictation(false));
           }}
         />
         <SettingsActionRow

@@ -174,6 +174,15 @@ function transcriptionErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message === "voice-operation-busy") {
     return "Voice transcription is still finishing. Try again shortly.";
   }
+  // Remote providers explain failures (bad key, unknown model); keep their reason visible.
+  if (
+    errorCode(error) === "transcription-failed" &&
+    error instanceof Error &&
+    error.message &&
+    error.message !== "Voice transcription failed."
+  ) {
+    return `Could not transcribe this recording. ${error.message}`;
+  }
   return "Could not transcribe this recording.";
 }
 

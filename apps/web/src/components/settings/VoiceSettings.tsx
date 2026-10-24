@@ -1,5 +1,8 @@
 import {
+  describeTranscriptionTest,
   listElevenLabsVoices,
+  silentWav,
+  transcribeAudio,
   OPENAI_VOICES,
   PLAYBACK_RATES,
   SPEECH_PROVIDER_KINDS,
@@ -118,8 +121,10 @@ function ProviderCard(props: { readonly provider: SpeechProviderConfig }) {
   const { provider } = props;
   const kind = SPEECH_PROVIDER_KINDS[provider.kind];
   const [voices, setVoices] = useState<readonly SpeechVoice[] | null>(null);
-  const [busy, setBusy] = useState<"voices" | "sample" | null>(null);
+  const [busy, setBusy] = useState<"voices" | "sample" | "dictation" | null>(null);
+  const [dictationReport, setDictationReport] = useState<string | null>(null);
   const speechProblem = speechProviderProblem(provider);
+  const transcriptionProblem = transcriptionProviderProblem(provider);
   const voiceOptions: readonly SpeechVoice[] | null =
     provider.kind === "openai"
       ? OPENAI_VOICES.map((voice) => ({ id: voice, name: voice }))
@@ -158,6 +163,23 @@ function ProviderCard(props: { readonly provider: SpeechProviderConfig }) {
             }}
           >
             Play sample
+          </Button>
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={transcriptionProblem !== null || busy !== null}
+            onClick={() => {
+              setBusy("dictation");
+              setDictationReport(null);
+              const wav = new Blob([silentWav() as Uint8Array<ArrayBuffer>], { type: "audio/wav" });
+              void Promise.allSettled([
+                transcribeAudio(provider, wav, "dictation-test.wav", AbortSignal.timeout(60_000)),
+              ])
+                .then(([result]) => setDictationReport(describeTranscriptionTest(result!)))
+                .finally(() => setBusy(null));
+            }}
+          >
+            Test dictation
           </Button>
           <Button
             size="xs"
@@ -267,6 +289,14 @@ function ProviderCard(props: { readonly provider: SpeechProviderConfig }) {
       </div>
       {speechProblem ? (
         <p className="text-muted-foreground text-xs">Read aloud: {speechProblem}</p>
+      ) : null}
+      {transcriptionProblem ? (
+        <p className="text-muted-foreground text-xs">Dictation: {transcriptionProblem}</p>
+      ) : null}
+      {dictationReport ? (
+        <p className="whitespace-pre-wrap rounded-md bg-muted px-3 py-2 font-mono text-xs">
+          Dictation test: {dictationReport}
+        </p>
       ) : null}
     </div>
   );
