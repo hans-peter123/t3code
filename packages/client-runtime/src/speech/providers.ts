@@ -3,6 +3,15 @@ import type { SpeechProviderConfig } from "./settings.ts";
 import { markdownToSpeechText, splitSpeechText } from "./text.ts";
 import { encodeWav, parseWav, type PcmAudio } from "./wav.ts";
 
+type SpeechFetch = (url: string, init: RequestInit) => Promise<Response>;
+
+let speechFetch: SpeechFetch = (url, init) => fetch(url, init);
+
+/** Lets a client route provider requests elsewhere, e.g. the desktop main process without CORS. */
+export function setSpeechFetch(impl: SpeechFetch): void {
+  speechFetch = impl;
+}
+
 /** Kept under every provider's per-request limit (gpt-4o-mini-tts takes about 2000 tokens). */
 export const SPEECH_CHUNK_LENGTH = 1500;
 
@@ -54,7 +63,7 @@ export async function synthesizeSpeech(
   request: SpeechRequest,
 ): Promise<PcmAudio> {
   if (provider.kind === "elevenlabs") {
-    const response = await fetch(
+    const response = await speechFetch(
       `${ELEVENLABS_BASE_URL}/text-to-speech/${encodeURIComponent(provider.voice.trim())}?output_format=pcm_24000`,
       {
         method: "POST",
@@ -74,7 +83,7 @@ export async function synthesizeSpeech(
 
   const custom = provider.kind === "openai-compatible";
   const apiKey = provider.apiKey.trim();
-  const response = await fetch(
+  const response = await speechFetch(
     `${custom ? trimSlash(provider.baseUrl) : OPENAI_BASE_URL}/audio/speech`,
     {
       method: "POST",
@@ -102,7 +111,7 @@ export interface SpeechVoice {
 }
 
 export async function listElevenLabsVoices(apiKey: string): Promise<SpeechVoice[]> {
-  const response = await fetch(`${ELEVENLABS_BASE_URL}/voices`, {
+  const response = await speechFetch(`${ELEVENLABS_BASE_URL}/voices`, {
     headers: { "xi-api-key": apiKey.trim() },
   });
   if (!response.ok) throw await responseError(response, "ElevenLabs");
@@ -193,7 +202,7 @@ export async function transcribeAudio(
     form.append("model", provider.transcriptionModel.trim());
     form.append("response_format", "json");
   }
-  const response = await fetch(url, { method: "POST", headers, body: form, signal });
+  const response = await speechFetch(url, { method: "POST", headers, body: form, signal });
   if (!response.ok) {
     const error = await responseError(response, "Transcription");
     throw error;

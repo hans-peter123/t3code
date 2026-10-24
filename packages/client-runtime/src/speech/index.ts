@@ -19,6 +19,7 @@ export {
 } from "./settings.ts";
 export {
   listElevenLabsVoices,
+  setSpeechFetch,
   speechCacheKeySource,
   synthesizeMessageWav,
   synthesizeSpeech,
