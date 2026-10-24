@@ -15,10 +15,19 @@ const runtimeVersionPolicy =
   (APP_VARIANT === "development" ? "appVersion" : "fingerprint");
 
 const personalTeamBundleIdentifier = repoEnv.T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID?.trim();
+// Forks with a paid Apple team keep every capability under their own identifier and team.
+const customBundleIdentifier = repoEnv.T3CODE_IOS_BUNDLE_ID?.trim() || undefined;
+const appleTeamId = repoEnv.T3CODE_APPLE_TEAM_ID?.trim() || "ARK85ZXQ4Z";
 const IOS_BUNDLE_IDENTIFIER_PATTERN = /^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
 
 const fromRepoRoot = (relativePath: string) => `../../${relativePath}`;
 const androidAdaptiveForeground = "./assets/android-icon-foreground.png";
+
+if (customBundleIdentifier && !IOS_BUNDLE_IDENTIFIER_PATTERN.test(customBundleIdentifier)) {
+  throw new Error(
+    "T3CODE_IOS_BUNDLE_ID must be a reverse-DNS identifier such as com.example.t3code.",
+  );
+}
 
 if (
   isIosPersonalTeamBuild &&
@@ -110,7 +119,7 @@ function resolveAppVariant(value: string | undefined): AppVariant {
 const variant = VARIANT_CONFIG[APP_VARIANT];
 const iosBundleIdentifier = isIosPersonalTeamBuild
   ? personalTeamBundleIdentifier!
-  : variant.iosBundleIdentifier;
+  : (customBundleIdentifier ?? variant.iosBundleIdentifier);
 
 const dmSansFonts = {
   regular: "@expo-google-fonts/dm-sans/400Regular/DMSans_400Regular.ttf",
@@ -216,7 +225,7 @@ const sharingPlugin: NonNullable<ExpoConfig["plugins"]>[number] = [
 // Match iOS PostScript names on Android so RN and the native composer share fonts before runtime loading.
 
 const config: ExpoConfig = {
-  name: variant.appName,
+  name: repoEnv.T3CODE_MOBILE_APP_NAME?.trim() || variant.appName,
   slug: "t3-code",
   platforms: ["ios", "android"],
   scheme: variant.scheme,
@@ -240,13 +249,15 @@ const config: ExpoConfig = {
     requireFullScreen: process.env.T3_SHOWCASE_CAPTURE_BUILD === "1",
     bundleIdentifier: iosBundleIdentifier,
     // Avoid Personal Team fallback: it cannot sign App Groups, Apple sign-in or push entitlements.
-    appleTeamId: "ARK85ZXQ4Z",
+    appleTeamId,
     associatedDomains: [
       `applinks:${variant.relyingParty}`,
       `webcredentials:${variant.relyingParty}`,
     ],
     entitlements: {
-      "keychain-access-groups": [`$(AppIdentifierPrefix)${variant.iosBundleIdentifier}`],
+      "keychain-access-groups": [
+        `$(AppIdentifierPrefix)${customBundleIdentifier ?? variant.iosBundleIdentifier}`,
+      ],
     },
     infoPlist: {
       UISupportedInterfaceOrientations: [
