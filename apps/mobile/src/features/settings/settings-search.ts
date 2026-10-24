@@ -30,6 +30,7 @@ const SETTINGS_SEARCH_TERMS = {
   SettingsNavigation: ["tabs", "tab order", "reorder", "hide tabs"],
   SettingsKeyboard: ["return key", "send message", "new line", "hardware keyboard"],
   SettingsMicrophone: ["voice", "dictation", "audio input", "bluetooth"],
+  SettingsSpeech: ["text to speech", "tts", "voice", "speak", "openai", "elevenlabs"],
   SettingsScheduledTasks: ["automations", "schedule", "cron", "recurring", "webhook"],
   SettingsProjectOverview: ["project", "checkouts", "worktrees", "delete project"],
   SettingsOrganization: ["project grouping", "group projects", "sidebar"],
