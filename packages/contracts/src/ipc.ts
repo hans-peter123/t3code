@@ -1022,6 +1022,13 @@ export interface DesktopBridge {
    * regardless of OS settings.
    */
   getSystemLocale?: () => string | null;
+  /** Voice provider HTTP without renderer CORS; see Settings > Voice. */
+  speechRequest?: (request: {
+    url: string;
+    method: "GET" | "POST";
+    headers: Record<string, string>;
+    body: Uint8Array | null;
+  }) => Promise<{ status: number; contentType: string; body: Uint8Array }>;
   getLocalEnvironmentBootstraps: () => readonly DesktopEnvironmentBootstrap[];
   getLocalEnvironmentEnabled?: () => boolean;
   setLocalEnvironmentEnabled?: (enabled: boolean) => Promise<void>;
