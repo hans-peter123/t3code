@@ -1,4 +1,5 @@
 import { transcribeAudio } from "@t3tools/client-runtime/speech";
+import { File } from "expo-file-system";
 import {
   VoiceTranscriptionError,
   throwIfVoiceTranscriptionAborted,
@@ -16,12 +17,10 @@ import {
 } from "./speechSettings";
 
 function recordingPart(uri: string) {
-  const name = uri.split("/").pop() || "recording.m4a";
-  const extension = name.split(".").pop()?.toLowerCase();
-  const type =
-    extension === "wav" ? "audio/wav" : extension === "caf" ? "audio/x-caf" : "audio/m4a";
-  // React Native's FormData uploads a local file from this shape.
-  return { file: { uri, name, type } as unknown as Blob, name };
+  // The app's global fetch is Expo's, whose FormData takes Blobs or expo-file-system Files
+  // (anything with `bytes()`), not React Native's `{ uri }` file objects.
+  const file = new File(uri);
+  return { file: file as unknown as Blob, name: file.name || "recording.m4a" };
 }
 
 /** Uploads a local recording to the provider's speech-to-text endpoint. */
