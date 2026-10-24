@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("expo-secure-store", () => ({
   getItemAsync: async () => null,
@@ -20,6 +20,18 @@ const server: SpeechProviderConfig = {
   transcriptionModel: "deepdml/faster-whisper-large-v3-turbo-ct2",
 };
 
+// Node's FormData only takes Blobs; React Native also takes its `{ uri, name, type }` file shape.
+class FakeFormData {
+  private readonly values = new Map<string, unknown>();
+  append(key: string, value: unknown) {
+    this.values.set(key, value);
+  }
+  get(key: string) {
+    return this.values.get(key);
+  }
+}
+
+beforeEach(() => vi.stubGlobal("FormData", FakeFormData));
 afterEach(() => vi.unstubAllGlobals());
 
 describe("transcribeRecording", () => {
@@ -35,7 +47,7 @@ describe("transcribeRecording", () => {
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://stt.example/v1/audio/transcriptions");
     expect(init.headers).toEqual({ Authorization: "Bearer secret" });
-    const form = init.body as FormData;
+    const form = init.body as unknown as FakeFormData;
     expect(form.get("model")).toBe("deepdml/faster-whisper-large-v3-turbo-ct2");
   });
 

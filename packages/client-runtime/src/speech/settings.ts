@@ -1,0 +1,223 @@
+// @effect-diagnostics globalConsole:off - a plain store shared by React Native and the web.
+export type SpeechProviderKind = "openai" | "elevenlabs" | "openai-compatible";
+
+export interface SpeechProviderConfig {
+  readonly id: string;
+  readonly kind: SpeechProviderKind;
+  readonly name: string;
+  readonly apiKey: string;
+  /** Only used by OpenAI-compatible servers, e.g. `http://my-host:8880/v1`. */
+  readonly baseUrl: string;
+  /** Text-to-speech model. */
+  readonly model: string;
+  readonly voice: string;
+  /** Speech-to-text model used for dictation. */
+  readonly transcriptionModel: string;
+}
+
+export interface SpeechSettings {
+  readonly providers: readonly SpeechProviderConfig[];
+  /** Reads messages aloud; null turns read aloud off. */
+  readonly activeProviderId: string | null;
+  /** Transcribes dictation; null keeps Apple's on-device recognition. */
+  readonly transcriptionProviderId: string | null;
+  readonly playbackRate: number;
+}
+
+export const SPEECH_PROVIDER_KINDS: Record<
+  SpeechProviderKind,
+  {
+    readonly label: string;
+    readonly description: string;
+    readonly defaultModel: string;
+    readonly defaultVoice: string;
+    readonly defaultTranscriptionModel: string;
+  }
+> = {
+  openai: {
+    label: "OpenAI",
+    description: "OpenAI voices and transcription",
+    defaultModel: "gpt-4o-mini-tts",
+    defaultVoice: "coral",
+    defaultTranscriptionModel: "gpt-4o-transcribe",
+  },
+  elevenlabs: {
+    label: "ElevenLabs",
+    description: "Your ElevenLabs voices and Scribe",
+    defaultModel: "eleven_multilingual_v2",
+    defaultVoice: "",
+    defaultTranscriptionModel: "scribe_v1",
+  },
+  "openai-compatible": {
+    label: "Custom server",
+    description: "Any server with OpenAI-compatible /audio endpoints",
+    defaultModel: "tts-1",
+    defaultVoice: "alloy",
+    defaultTranscriptionModel: "whisper-1",
+  },
+};
+
+export const OPENAI_VOICES = [
+  "alloy",
+  "ash",
+  "ballad",
+  "coral",
+  "echo",
+  "fable",
+  "nova",
+  "onyx",
+  "sage",
+  "shimmer",
+  "verse",
+] as const;
+
+export const PLAYBACK_RATES = [1, 1.25, 1.5, 1.75, 2] as const;
+
+export const DEFAULT_SPEECH_SETTINGS: SpeechSettings = {
+  providers: [],
+  activeProviderId: null,
+  transcriptionProviderId: null,
+  playbackRate: 1,
+};
+
+export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
+  if (typeof value !== "object" || value === null) return DEFAULT_SPEECH_SETTINGS;
+  const raw = value as Record<string, unknown>;
+  const providers = Array.isArray(raw.providers)
+    ? raw.providers.flatMap((entry): SpeechProviderConfig[] => {
+        if (typeof entry !== "object" || entry === null) return [];
+        const provider = entry as Record<string, unknown>;
+        const kind = provider.kind;
+        if (
+          typeof provider.id !== "string" ||
+          typeof kind !== "string" ||
+          !(kind in SPEECH_PROVIDER_KINDS)
+        ) {
+          return [];
+        }
+        const text = (key: string) =>
+          typeof provider[key] === "string" ? (provider[key] as string) : "";
+        return [
+          {
+            id: provider.id,
+            kind: kind as SpeechProviderKind,
+            name: text("name"),
+            apiKey: text("apiKey"),
+            baseUrl: text("baseUrl"),
+            model: text("model"),
+            voice: text("voice"),
+            // Providers saved before dictation existed get the kind's default.
+            transcriptionModel:
+              typeof provider.transcriptionModel === "string"
+                ? provider.transcriptionModel
+                : SPEECH_PROVIDER_KINDS[kind as SpeechProviderKind].defaultTranscriptionModel,
+          },
+        ];
+      })
+    : [];
+  const knownProvider = (id: unknown): id is string =>
+    typeof id === "string" && providers.some((provider) => provider.id === id);
+  // An explicit null means "off"; a missing or removed provider falls back to the first one.
+  const activeProviderId = knownProvider(raw.activeProviderId)
+    ? raw.activeProviderId
+    : raw.activeProviderId === null
+      ? null
+      : (providers[0]?.id ?? null);
+  const transcriptionProviderId = knownProvider(raw.transcriptionProviderId)
+    ? raw.transcriptionProviderId
+    : null;
+  const playbackRate =
+    typeof raw.playbackRate === "number" &&
+    (PLAYBACK_RATES as readonly number[]).includes(raw.playbackRate)
+      ? raw.playbackRate
+      : 1;
+  return { providers, activeProviderId, transcriptionProviderId, playbackRate };
+}
+
+export function activeSpeechProvider(current: SpeechSettings): SpeechProviderConfig | null {
+  return current.providers.find((provider) => provider.id === current.activeProviderId) ?? null;
+}
+
+export function transcriptionProvider(current: SpeechSettings): SpeechProviderConfig | null {
+  return (
+    current.providers.find((provider) => provider.id === current.transcriptionProviderId) ?? null
+  );
+}
+
+function connectionProblem(provider: SpeechProviderConfig): string | null {
+  if (provider.kind !== "openai-compatible" && !provider.apiKey.trim()) return "Add an API key.";
+  if (provider.kind === "openai-compatible" && !provider.baseUrl.trim()) return "Add a server URL.";
+  return null;
+}
+
+/** Why a provider cannot speak yet, or null when it is ready. */
+export function speechProviderProblem(provider: SpeechProviderConfig): string | null {
+  const problem = connectionProblem(provider);
+  if (problem) return problem;
+  if (provider.kind === "elevenlabs" && !provider.voice.trim()) return "Choose a voice.";
+  if (!provider.model.trim()) return "Add a speech model.";
+  return null;
+}
+
+/** Why a provider cannot transcribe yet, or null when it is ready. */
+export function transcriptionProviderProblem(provider: SpeechProviderConfig): string | null {
+  return (
+    connectionProblem(provider) ??
+    (provider.transcriptionModel.trim() ? null : "Add a transcription model.")
+  );
+}
+
+/** Where a client keeps the settings JSON; it holds API keys, so prefer secure storage. */
+export interface SpeechSettingsStorage {
+  readonly read: () => Promise<string | null>;
+  readonly write: (value: string) => Promise<void>;
+}
+
+export interface SpeechSettingsStore {
+  /** Resolves to the current settings, reading storage only once. */
+  readonly load: () => Promise<SpeechSettings>;
+  readonly update: (transform: (current: SpeechSettings) => SpeechSettings) => Promise<void>;
+  /** The settings as they stand now; defaults until storage has been read. */
+  readonly current: () => SpeechSettings;
+  readonly subscribe: (listener: () => void) => () => void;
+}
+
+export function createSpeechSettingsStore(storage: SpeechSettingsStorage): SpeechSettingsStore {
+  let settings = DEFAULT_SPEECH_SETTINGS;
+  let loaded: Promise<void> | null = null;
+  const listeners = new Set<() => void>();
+  const emit = () => {
+    for (const listener of listeners) listener();
+  };
+  const load = async () => {
+    loaded ??= storage
+      .read()
+      .then((raw) => {
+        settings = raw ? sanitizeSpeechSettings(JSON.parse(raw)) : DEFAULT_SPEECH_SETTINGS;
+        emit();
+      })
+      .catch((error: unknown) => {
+        console.warn("[speech] could not load settings", error);
+      });
+    await loaded;
+    // Not the value from the first read: later edits replace `settings`.
+    return settings;
+  };
+  return {
+    load,
+    update: async (transform) => {
+      await load();
+      settings = sanitizeSpeechSettings(transform(settings));
+      emit();
+      await storage.write(JSON.stringify(settings));
+    },
+    current: () => settings,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      void load();
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
