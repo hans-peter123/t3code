@@ -35,15 +35,21 @@ function trimSlash(url: string): string {
 async function responseError(response: Response, provider: string): Promise<Error> {
   let detail = "";
   try {
-    const body = (await response.json()) as {
-      error?: { message?: string } | string;
-      detail?: { message?: string } | string;
-    };
-    const candidate = body.error ?? body.detail;
-    detail = typeof candidate === "string" ? candidate : (candidate?.message ?? "");
+    const text = (await response.text()).trim();
+    try {
+      const body = JSON.parse(text) as {
+        error?: { message?: string } | string;
+        detail?: { message?: string } | string;
+        message?: string;
+      };
+      const candidate = body.error ?? body.detail ?? body.message;
+      detail = typeof candidate === "string" ? candidate : (candidate?.message ?? text);
+    } catch {
+      detail = text;
+    }
   } catch {}
   return new Error(
-    `${provider} returned ${response.status}${detail ? `: ${detail}` : ""}`.slice(0, 300),
+    `${provider} returned ${response.status}${detail ? `: ${detail}` : ""}`.slice(0, 400),
   );
 }
 
@@ -204,9 +210,30 @@ export async function transcribeAudio(
   }
   const response = await speechFetch(url, { method: "POST", headers, body: form, signal });
   if (!response.ok) {
-    const error = await responseError(response, "Transcription");
+    const error = await responseError(response, `Transcription at ${new URL(url).host}`);
     throw error;
   }
   const body = (await response.json()) as { text?: unknown };
   return typeof body.text === "string" ? body.text.trim() : "";
+}
+
+/** One second of silence as WAV: enough for a provider to prove URL, key, and model work. */
+export function silentWav(): Uint8Array {
+  return encodeWav([
+    { format: { sampleRate: 16_000, channels: 1 }, samples: new Uint8Array(32_000) },
+  ]);
+}
+
+/** A readable report of a test transcription, for the settings "Test dictation" action. */
+export function describeTranscriptionTest(result: PromiseSettledResult<string>): string {
+  if (result.status === "fulfilled") {
+    return result.value
+      ? `The server answered with: "${result.value}"`
+      : "The server answered. The test audio is silent, so an empty transcript is expected.";
+  }
+  const error = result.reason;
+  const message = error instanceof Error ? error.message : String(error);
+  const cause =
+    error instanceof Error && error.cause instanceof Error ? `\n${error.cause.message}` : "";
+  return `${message}${cause}`;
 }
