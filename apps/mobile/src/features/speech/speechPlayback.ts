@@ -167,7 +167,12 @@ export async function speakMessage(input: {
     audio.setActiveForLockScreen(
       true,
       { title: input.title || "T3 Code", artist: "T3 Code" },
-      { showSeekBackward: true, showSeekForward: true },
+      {
+        showSeekBackward: true,
+        showSeekForward: true,
+        seekBackwardIntervalSeconds: 15,
+        seekForwardIntervalSeconds: 15,
+      },
     );
   } catch (error) {
     if (request !== controller) return;
