@@ -4,6 +4,17 @@ vi.mock("expo-secure-store", () => ({
   getItemAsync: async () => null,
   setItemAsync: async () => {},
 }));
+vi.mock("expo-file-system", () => ({
+  File: class {
+    readonly name: string;
+    constructor(readonly uri: string) {
+      this.name = uri.split("/").pop() ?? "";
+    }
+    async bytes() {
+      return new Uint8Array([1, 2, 3]);
+    }
+  },
+}));
 vi.mock("../../native/voiceTranscription", () => ({ getLocalVoiceTranscriber: () => null }));
 
 import type { SpeechProviderConfig } from "./speechSettings";
@@ -49,6 +60,10 @@ describe("transcribeRecording", () => {
     expect(init.headers).toEqual({ Authorization: "Bearer secret" });
     const form = init.body as unknown as FakeFormData;
     expect(form.get("model")).toBe("deepdml/faster-whisper-large-v3-turbo-ct2");
+    // Expo's fetch serializes parts that expose bytes(); React Native's { uri } shape fails there.
+    const file = form.get("file") as { name: string; bytes: () => Promise<Uint8Array> };
+    expect(file.name).toBe("recording-1.m4a");
+    expect(typeof file.bytes).toBe("function");
   });
 
   it("uses ElevenLabs' speech-to-text endpoint and reports errors", async () => {
