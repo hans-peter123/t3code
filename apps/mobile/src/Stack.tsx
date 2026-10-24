@@ -351,10 +351,10 @@ const SETTINGS_SCREENS = {
   }),
   SettingsSpeech: createNativeStackScreen({
     screen: SettingsSpeechRouteScreen,
-    linking: "settings/read-aloud",
+    linking: "settings/voice",
     options: {
       ...SETTINGS_PAGE_OPTIONS,
-      title: "Read aloud",
+      title: "Voice",
     },
   }),
   SettingsFollowUp: createNativeStackScreen({

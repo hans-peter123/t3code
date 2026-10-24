@@ -13,7 +13,7 @@ import {
   preferredMicrophoneInput,
   rememberMicrophones,
 } from "../../lib/microphonePriority";
-import { getLocalVoiceTranscriber } from "../../native/voiceTranscription";
+import { getVoiceTranscriber, useVoiceTranscriberAvailable } from "../speech/speechTranscription";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { getNativeShowcaseScene } from "../showcase/nativeShowcaseScene";
 import {
@@ -115,8 +115,7 @@ const voiceInputAtom = Atom.make((get) => {
   const session: VoiceInputSession = new VoiceInputSession({
     recorder,
     getTranscriber: () => {
-      const transcriber = registry.get(localVoiceTranscriberAtom);
-      return transcriber === "checking" ? null : transcriber;
+      return getVoiceTranscriber(registry.get(localVoiceInputAvailableAtom));
     },
     requestPermission: permission.requestPermission,
     configureRecording: async () => {
@@ -155,9 +154,10 @@ export function useGlobalVoiceInput() {
   const { session, audioLevels } = useAtomValue(voiceInputAtom);
   const isTranscriberAvailable = useAtomValue(localVoiceInputAvailableAtom);
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  const transcriberAvailable = useVoiceTranscriberAvailable(isTranscriberAvailable);
   return {
     ...snapshot,
-    isAvailable: isTranscriberAvailable || getNativeShowcaseScene() !== null,
+    isAvailable: transcriberAvailable || getNativeShowcaseScene() !== null,
     audioLevels,
     isBusy: voiceInputBlocksSubmission(snapshot.state),
     session,
