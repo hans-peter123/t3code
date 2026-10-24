@@ -74,7 +74,8 @@ cat > "$options" <<PLIST
 </plist>
 PLIST
 
-xcodebuild -exportArchive \
+# Homebrews rsync bricht Xcodes IPA-Schritt ab; Apples Werkzeuge müssen zuerst im PATH stehen.
+PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH" xcodebuild -exportArchive \
   -archivePath "$archive" \
   -exportOptionsPlist "$options" \
   -exportPath "$build_dir/export" \
