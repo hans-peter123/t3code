@@ -70,7 +70,7 @@ const STORAGE_KEY = "t3code.speech.settings";
 const DEFAULT_SETTINGS: SpeechSettings = { providers: [], activeProviderId: null, playbackRate: 1 };
 
 let settings: SpeechSettings = DEFAULT_SETTINGS;
-let loaded: Promise<SpeechSettings> | null = null;
+let loaded: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
 function sanitize(value: unknown): SpeechSettings {
@@ -120,18 +120,19 @@ function emit() {
   for (const listener of listeners) listener();
 }
 
-export function loadSpeechSettings(): Promise<SpeechSettings> {
+/** Resolves to the current settings, reading the keychain only once. */
+export async function loadSpeechSettings(): Promise<SpeechSettings> {
   loaded ??= SecureStore.getItemAsync(STORAGE_KEY)
     .then((raw) => {
       settings = raw ? sanitize(JSON.parse(raw)) : DEFAULT_SETTINGS;
       emit();
-      return settings;
     })
     .catch((error: unknown) => {
       console.warn("[speech] could not load settings", error);
-      return settings;
     });
-  return loaded;
+  await loaded;
+  // Not the value from the first read: later edits replace `settings`.
+  return settings;
 }
 
 export async function updateSpeechSettings(
