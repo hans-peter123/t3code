@@ -76,3 +76,36 @@ export function splitSpeechText(text: string, maxLength: number): string[] {
   push();
   return chunks;
 }
+
+/** Where a lead-in piece of at most `maxLength` characters should end: a sentence, then a word. */
+function leadInEnd(text: string, maxLength: number): number {
+  let end = 0;
+  for (const match of text.slice(0, maxLength + 1).matchAll(/[.!?]+["'”’)\]]*(?=\s)|\n/g)) {
+    const matchEnd = match.index + match[0].length;
+    if (matchEnd <= maxLength) end = matchEnd;
+  }
+  if (end > 0) return end;
+  const space = text.lastIndexOf(" ", maxLength);
+  return space > 0 ? space : maxLength;
+}
+
+/**
+ * Plans the requests for one message. The first pieces are short and end at a sentence so audio
+ * starts quickly, and each one plays long enough to cover synthesizing the next, larger piece.
+ */
+export function planSpeechChunks(
+  text: string,
+  leadInLengths: readonly number[],
+  chunkLength: number,
+): string[] {
+  const chunks: string[] = [];
+  let rest = text.trim();
+  for (const maxLength of leadInLengths) {
+    if (rest.length <= maxLength) break;
+    const end = leadInEnd(rest, maxLength);
+    const head = rest.slice(0, end).trim();
+    if (head) chunks.push(head);
+    rest = rest.slice(end).trim();
+  }
+  return [...chunks, ...splitSpeechText(rest, chunkLength)];
+}
