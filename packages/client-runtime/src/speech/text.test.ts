@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { markdownToSpeechText, splitSpeechText } from "./speechText";
+import { markdownToSpeechText, splitSpeechText } from "./text.ts";
 
 describe("markdownToSpeechText", () => {
   it("drops code blocks, images, and markup but keeps readable text", () => {

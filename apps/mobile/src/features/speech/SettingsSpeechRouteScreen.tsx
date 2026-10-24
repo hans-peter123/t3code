@@ -10,7 +10,7 @@ import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { SettingsActionRow } from "../settings/components/SettingsActionRow";
 import { SettingsChoiceRow } from "../settings/components/SettingsChoiceRow";
 import { SettingsSection } from "../settings/components/SettingsSection";
-import { listElevenLabsVoices, type SpeechVoice } from "./speechProviders";
+import { listElevenLabsVoices, type SpeechVoice } from "@t3tools/client-runtime/speech";
 import { setSpeechPlaybackRate, speakMessage, stopSpeech } from "./speechPlayback";
 import {
   OPENAI_VOICES,
