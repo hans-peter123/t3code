@@ -18,7 +18,9 @@ export {
   type SpeechSettingsStore,
 } from "./settings.ts";
 export {
+  describeTranscriptionTest,
   listElevenLabsVoices,
+  silentWav,
   setSpeechFetch,
   speechCacheKeySource,
   synthesizeMessageWav,
