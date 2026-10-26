@@ -326,6 +326,33 @@ export const DesktopCliCommandStateSchema = Schema.Struct({
 });
 export type DesktopCliCommandState = typeof DesktopCliCommandStateSchema.Type;
 
+export const DesktopNetbirdPeerSchema = Schema.Struct({
+  name: Schema.String,
+  ip: Schema.String,
+  connected: Schema.Boolean,
+});
+
+export const DesktopNetbirdStateSchema = Schema.Struct({
+  enabled: Schema.Boolean,
+  binaryPath: Schema.String,
+  managementUrl: Schema.String,
+  // A registered peer reconnects without a setup key.
+  registered: Schema.Boolean,
+  status: Schema.Literals(["off", "starting", "connected", "error"]),
+  error: Schema.NullOr(Schema.String),
+  ip: Schema.NullOr(Schema.String),
+  peers: Schema.Array(DesktopNetbirdPeerSchema),
+});
+export type DesktopNetbirdState = typeof DesktopNetbirdStateSchema.Type;
+
+export const DesktopNetbirdConfigureInputSchema = Schema.Struct({
+  enabled: Schema.Boolean,
+  binaryPath: Schema.String,
+  managementUrl: Schema.String,
+  setupKey: Schema.optionalKey(Schema.String),
+});
+export type DesktopNetbirdConfigureInput = typeof DesktopNetbirdConfigureInputSchema.Type;
+
 export interface DesktopUpdateActionResult {
   accepted: boolean;
   completed: boolean;
@@ -1119,6 +1146,10 @@ export interface DesktopBridge {
     getState: () => Promise<DesktopCliCommandState>;
     install: () => Promise<DesktopCliCommandState>;
     uninstall: () => Promise<DesktopCliCommandState>;
+  };
+  netbird?: {
+    getState: () => Promise<DesktopNetbirdState>;
+    configure: (input: DesktopNetbirdConfigureInput) => Promise<DesktopNetbirdState>;
   };
   webLinks?: {
     setReady: (ready: boolean) => Promise<void>;

@@ -276,6 +276,10 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     install: () => ipcRenderer.invoke(IpcChannels.CLI_COMMAND_INSTALL_CHANNEL),
     uninstall: () => ipcRenderer.invoke(IpcChannels.CLI_COMMAND_UNINSTALL_CHANNEL),
   },
+  netbird: {
+    getState: () => ipcRenderer.invoke(IpcChannels.NETBIRD_GET_STATE_CHANNEL),
+    configure: (input) => ipcRenderer.invoke(IpcChannels.NETBIRD_CONFIGURE_CHANNEL, input),
+  },
   onUpdateState: (listener) => {
     const wrappedListener = (_event: Electron.IpcRendererEvent, state: unknown) => {
       if (typeof state !== "object" || state === null) return;

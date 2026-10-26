@@ -1022,6 +1022,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["add pair backend host code ssh config agent tunnel saved t3 connect"],
   },
   {
+    id: "netbird",
+    title: "NetBird",
+    to: "/settings/connections",
+    searchTerms: ["vpn wireguard mesh network peer setup key without admin proxy remote"],
+    desktopOnly: true,
+  },
+  {
     id: "load-balancing",
     title: "Load balancing",
     to: "/settings/connections",
