@@ -25,6 +25,9 @@ node --version
 
 [ -f .env ] || cp .env.example .env
 unset T3CODE_DESKTOP_UPDATE_REPOSITORY GITHUB_REPOSITORY
+# Die Build-Skripte suchen native Binaries unter native/*/target; Agents setzen hier teils ein
+# gemeinsames Verzeichnis für andere Projekte.
+unset CARGO_TARGET_DIR
 rm -rf release
 
 vp install --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
