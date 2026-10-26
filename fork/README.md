@@ -62,6 +62,19 @@ nicht nach offiziellen Updates. Er ersetzt die offizielle App (gleiche Bundle-ID
 `~/.t3`). Vorher die laufende App beenden. Beim ersten Start fragt macOS ggf. nach dem Schlüsselbund
 („Immer erlauben“) und beim ersten Diktat nach dem Mikrofon.
 
+## Desktop-Builds in TeamCity (Windows, Linux, macOS)
+
+Projekt **T3 Code (Fork)** auf <https://teamcity.muntean.cloud>, eine Konfiguration pro Plattform,
+manuell gestartet („Run"). Alle rufen `fork/ci-desktop.sh <win|linux|mac>` auf; die Installer
+hängen als Artefakte am Lauf.
+
+- **Windows x64** baut wie upstream auf dem Linux-Agenten (`cargo-xwin`, NSIS ohne Wine), unsigniert.
+  Windows warnt beim ersten Start (SmartScreen → „Weitere Informationen" → „Trotzdem ausführen").
+- **Linux x64** (AppImage) auf `ciagent02`, **macOS arm64** (DMG) auf `macbuild01`.
+
+Diktieren unter Windows braucht in den Datenschutzeinstellungen „Desktop-Apps Zugriff auf das
+Mikrofon erlauben".
+
 ## Bekannte Grenzen eigener Builds
 
 - Login mit T3 Connect: GitHub/E-Mail über Clerk; Passkeys und nativer „Sign in with Apple“ funktionieren nur
