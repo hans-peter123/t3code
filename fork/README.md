@@ -65,12 +65,13 @@ nicht nach offiziellen Updates. Er ersetzt die offizielle App (gleiche Bundle-ID
 ## Desktop-Builds in TeamCity (Windows, Linux, macOS)
 
 Projekt **T3 Code (Fork)** auf <https://teamcity.muntean.cloud>, eine Konfiguration pro Plattform,
-manuell gestartet („Run"). Alle rufen `fork/ci-desktop.sh <win|linux|mac>` auf; die Installer
-hängen als Artefakte am Lauf.
+manuell gestartet („Run", beliebiger Branch); die Installer hängen als Artefakte am Lauf.
 
-- **Windows x64** baut wie upstream auf dem Linux-Agenten (`cargo-xwin`, NSIS ohne Wine), unsigniert.
-  Windows warnt beim ersten Start (SmartScreen → „Weitere Informationen" → „Trotzdem ausführen").
-- **Linux x64** (AppImage) auf `ciagent02`, **macOS arm64** (DMG) auf `macbuild01`.
+- **Windows x64** (NSIS) auf `winbuild01` über `fork/ci-desktop.ps1`, unsigniert. Windows warnt beim
+  ersten Start (SmartScreen → „Weitere Informationen" → „Trotzdem ausführen"). Python und die
+  Spectre-Bibliotheken richtet `winbuild01/setup/06-t3code-tools.ps1` im cloud-Repo ein.
+- **Linux x64** (AppImage) auf `ciagent02` und **macOS arm64** (DMG) auf `macbuild01` über
+  `fork/ci-desktop.sh <linux|mac>`.
 
 Diktieren unter Windows braucht in den Datenschutzeinstellungen „Desktop-Apps Zugriff auf das
 Mikrofon erlauben".
