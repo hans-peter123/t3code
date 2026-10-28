@@ -108,6 +108,7 @@ export type HandsFreeEvent =
   | { readonly type: "approvalRequested"; readonly requestId: string; readonly title: string };
 
 export type HandsFreeEffect =
+  /** A short read whose summary fails reports `speechFailed`; the reducer then retries it in full. */
   | {
       readonly type: "speakReply";
       readonly id: number;
