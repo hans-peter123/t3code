@@ -8,6 +8,7 @@
     "mcp-tool-use:regrade": "node mcp-tool-use/regrade.ts",
     "thread-titles": "node --env-file-if-exists=../.env thread-titles/run.ts",
     "test-signal": "node --env-file-if-exists=../.env test-signal/run.ts",
+    "spoken-summaries": "node --env-file-if-exists=../.env spoken-summaries/run.ts",
     "typecheck": "effect-tsgo tsrs --noEmit",
     "test": "vp test run --config ../vite.config.ts --dir ."
   },

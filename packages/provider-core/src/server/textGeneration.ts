@@ -97,6 +97,55 @@ export type ReviewGuideGenerationResult = Omit<
   "headSha" | "generatedAt" | "modelSelection"
 >;
 
+export interface SpokenSummaryChangedFile {
+  readonly path: string;
+  readonly additions?: number | undefined;
+  readonly deletions?: number | undefined;
+}
+
+export interface SpokenSummaryHistoryEntry {
+  readonly role: "user" | "assistant";
+  readonly text: string;
+}
+
+/** How the run being spoken about stands; queued and starting runs count as running. */
+export interface SpokenSummaryRunOutcome {
+  readonly status: "running" | "waiting" | "completed" | "interrupted" | "failed" | "cancelled";
+  /** The provider's last error when the run failed. */
+  readonly error: string | null;
+}
+
+/** Thread material for a spoken summary, already selected and trimmed to a budget. */
+export interface SpokenSummaryContext {
+  readonly threadTitle: string;
+  readonly originalTask: string;
+  /** Earlier runs in order: later user messages, answered questions and each run's final reply. */
+  readonly history: ReadonlyArray<SpokenSummaryHistoryEntry>;
+  readonly omittedHistory: number;
+  /** The user message that started the run being spoken about, when it is not the original task. */
+  readonly latestRequest: string | null;
+  /** Every assistant message of the run being spoken about, in order. */
+  readonly latestReply: ReadonlyArray<string>;
+  /** Null for imported history, which has no runs. */
+  readonly latestRunOutcome: SpokenSummaryRunOutcome | null;
+  readonly changedFiles: ReadonlyArray<SpokenSummaryChangedFile>;
+  readonly omittedChangedFiles: number;
+  /** Open approvals and questions that wait for the user. */
+  readonly pending: ReadonlyArray<string>;
+}
+
+export interface SpokenSummaryGenerationInput {
+  cwd: string;
+  context: SpokenSummaryContext;
+  /** BCP 47 tag used only when the thread's own language is unclear. */
+  languageHint?: string | undefined;
+  modelSelection: ModelSelection;
+}
+
+export interface SpokenSummaryGenerationResult {
+  text: string;
+}
+
 export interface ProviderTextGeneration {
   readonly generateCommitMessage: (
     input: CommitMessageGenerationInput,
@@ -117,4 +166,8 @@ export interface ProviderTextGeneration {
   readonly generateReviewGuide: (
     input: ReviewGuideGenerationInput,
   ) => Effect.Effect<ReviewGuideGenerationResult, TextGenerationError>;
+
+  readonly generateSpokenSummary: (
+    input: SpokenSummaryGenerationInput,
+  ) => Effect.Effect<SpokenSummaryGenerationResult, TextGenerationError>;
 }

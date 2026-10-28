@@ -27,6 +27,7 @@ import { EnvironmentMachineKind, ThreadEnvMode, WorktreeSubmodules } from "./env
 import { KeybindingShortcut } from "./keybindings.ts";
 import {
   CustomModelSetting,
+  DEFAULT_SPOKEN_SUMMARY_MODEL,
   DEFAULT_TEXT_GENERATION_MODEL,
   DEFAULT_TEXT_GENERATION_REASONING_EFFORT,
   ProviderOptionSelections,
@@ -1349,6 +1350,15 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
   reviewGuideInstructions: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  /** Writes the short version of a reply that clients read aloud; a full model, not the title model. */
+  spokenSummaryModelSelection: ModelSelection.pipe(
+    Schema.withDecodingDefault(
+      Effect.succeed({
+        instanceId: ProviderInstanceId.make("claudeAgent"),
+        model: DEFAULT_SPOKEN_SUMMARY_MODEL,
+      }),
+    ),
+  ),
 
   pullRequestMergeMethod: Schema.NullOr(PullRequestMergeMethod).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
@@ -1695,6 +1705,7 @@ export const ServerSettingsPatch = Schema.Struct({
   reviewGuidesEnabled: Schema.optionalKey(Schema.Boolean),
   reviewGuideModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   reviewGuideInstructions: Schema.optionalKey(TrimmedString),
+  spokenSummaryModelSelection: Schema.optionalKey(ModelSelection),
   pullRequestMergeMethod: Schema.optionalKey(Schema.NullOr(PullRequestMergeMethod)),
   observability: Schema.optionalKey(
     Schema.Struct({
