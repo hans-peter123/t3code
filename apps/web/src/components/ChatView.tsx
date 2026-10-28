@@ -88,6 +88,7 @@ import {
   deriveLatestThreadRun,
   deriveThreadStructureRuntime,
   limitRecoveryOwnsSnooze,
+  isLatestRunSettled,
 } from "@t3tools/client-runtime/state/thread-execution";
 import {
   resolveWorkflowOpening,
@@ -148,7 +149,6 @@ import {
   deriveActiveWorkStartedAt,
   deriveCanInterruptRunningThread,
   findRevertCheckpoint,
-  isLatestRunSettled,
 } from "../session-logic";
 import { type LegendListRef } from "@legendapp/list/react";
 import { useWorkspaceMutationRefresh } from "../hooks/useWorkspaceMutationRefresh";
@@ -1573,6 +1573,8 @@ export default function ChatView(props: ChatViewProps) {
     threadKey: routeThreadKey,
     runId: isServerThread ? (activeLatestRun?.runId ?? null) : null,
     settled: latestRunSettled,
+    completed: activeLatestRun?.status === "completed",
+    live: threadStatus === "live",
     messages: timelineMessages,
     title: activeThread?.title ?? "",
     serverThread: isServerThread,

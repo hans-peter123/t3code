@@ -30,6 +30,7 @@ import {
   deriveThreadRuntime,
   formatModelSelectionEffort,
   isBackgroundWorkStopPending,
+  isLatestRunSettled,
   presentPendingBackgroundWork,
   presentProviderGoal,
   presentRunStop,
@@ -128,6 +129,33 @@ describe("thread execution presentation", () => {
       }),
     ).toEqual([]);
     expect(deriveProviderExtensionStatuses(null)).toEqual([]);
+  });
+
+  it("uses run status as the settlement boundary", () => {
+    const runId = RunId.make("run-1");
+    expect(
+      isLatestRunSettled(
+        {
+          runId,
+          status: "completed",
+          startedAt: "2026-06-20T00:00:00.000Z",
+          completedAt: "2026-06-20T00:01:00.000Z",
+        },
+        null,
+      ),
+    ).toBe(true);
+    expect(
+      isLatestRunSettled(
+        { runId, status: "running", startedAt: null, completedAt: null },
+        { status: "running", activeRunId: runId },
+      ),
+    ).toBe(false);
+    expect(
+      isLatestRunSettled(
+        { runId, status: "queued", startedAt: null, completedAt: null },
+        { status: "running", activeRunId: RunId.make("run-active") },
+      ),
+    ).toBe(false);
   });
 
   it("derives the current root failure without inheriting errors from children or previous runs", () => {

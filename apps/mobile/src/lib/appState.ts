@@ -24,7 +24,7 @@ export function useAppActive(): boolean {
   return useSyncExternalStore(subscribeAppState, isAppActive);
 }
 
-function isAppForeground(): boolean {
+export function isAppForeground(): boolean {
   return AppState.currentState !== "background";
 }
 

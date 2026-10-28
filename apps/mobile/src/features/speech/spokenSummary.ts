@@ -15,6 +15,11 @@ export function useCanSummarize(environmentId: EnvironmentId | null): boolean {
   return useAtomValue(spokenSummary.permissionAtom(environmentId));
 }
 
+/** `useCanSummarize` outside React, read at the moment a reply starts. */
+export function canSummarize(environmentId: EnvironmentId): boolean {
+  return appAtomRegistry.get(spokenSummary.permissionAtom(environmentId));
+}
+
 export const loadSpokenSummary = (source: SpokenSummarySource) =>
   spokenSummary.load(source, Intl.DateTimeFormat().resolvedOptions().locale);
 
