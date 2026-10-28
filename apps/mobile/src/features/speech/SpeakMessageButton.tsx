@@ -124,27 +124,25 @@ export function replySpeechRequest(input: {
   };
 }
 
-/** Reads an assistant message aloud; expands into transport controls while it is loaded. */
-export const SpeakMessageButton = memo(function SpeakMessageButton(props: {
+export interface ReplyToRead {
   readonly messageId: MessageId;
   readonly markdown: string;
   readonly title: string;
   /** The server thread of the reply; null for a thread still being created. */
   readonly threadRef: ScopedThreadRef | null;
-  readonly tintColor: ColorValue;
-  readonly buttonSize?: number;
-  readonly iconSize?: number;
-}) {
-  const navigation = useNavigation();
-  const playback = useSpeechPlayback(props.messageId);
-  const settings = useSpeechSettings();
-  const canSummarize = useCanSummarize(props.threadRef?.environmentId ?? null);
-  const size = props.buttonSize ?? 28;
-  const iconSize = props.iconSize ?? 13;
+}
 
+/**
+ * Starts reading a reply, explaining setup and failures. `enabled` is false when read aloud is
+ * turned off in settings; with no provider yet, starting leads to setup.
+ */
+export function useReadReplyAloud(reply: ReplyToRead) {
+  const navigation = useNavigation();
+  const settings = useSpeechSettings();
+  const canSummarize = useCanSummarize(reply.threadRef?.environmentId ?? null);
   const start = (mode?: SpeechReadMode) => {
     speakMessage(
-      replySpeechRequest({ ...props, threadRef: canSummarize ? props.threadRef : null, mode }),
+      replySpeechRequest({ ...reply, threadRef: canSummarize ? reply.threadRef : null, mode }),
     ).catch((error: unknown) => {
       if (error instanceof SpeechNotConfiguredError) {
         Dialog.confirm({
@@ -158,11 +156,24 @@ export const SpeakMessageButton = memo(function SpeakMessageButton(props: {
       Dialog.alert("Could not read aloud", error instanceof Error ? error.message : "Try again.");
     });
   };
+  const enabled = settings.providers.length === 0 || Boolean(settings.activeProviderId);
+  return { enabled, start };
+}
 
-  // Turned off in settings; with no provider yet the button still leads to setup.
-  if (playback.phase === "idle" && settings.providers.length > 0 && !settings.activeProviderId) {
-    return null;
-  }
+/** Reads an assistant message aloud; expands into transport controls while it is loaded. */
+export const SpeakMessageButton = memo(function SpeakMessageButton(
+  props: ReplyToRead & {
+    readonly tintColor: ColorValue;
+    readonly buttonSize?: number;
+    readonly iconSize?: number;
+  },
+) {
+  const playback = useSpeechPlayback(props.messageId);
+  const { enabled, start } = useReadReplyAloud(props);
+  const size = props.buttonSize ?? 28;
+  const iconSize = props.iconSize ?? 13;
+
+  if (playback.phase === "idle" && !enabled) return null;
 
   const notice = playback.shortUnavailable ? (
     <Text className="px-1 text-xs text-foreground-secondary">

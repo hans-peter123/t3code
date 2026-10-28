@@ -37,6 +37,13 @@ describe("read mode", () => {
     expect(readMode("full")).toBe("full");
     expect(readMode("loud")).toBe("short");
   });
+
+  it("reads on double tap unless it was turned off", () => {
+    const doubleTap = (value: unknown) =>
+      sanitizeSpeechSettings({ doubleTapToRead: value }).doubleTapToRead;
+    expect(doubleTap(undefined)).toBe(true);
+    expect(doubleTap(false)).toBe(false);
+  });
 });
 
 describe("dictation language", () => {
