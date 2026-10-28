@@ -168,10 +168,6 @@ export function speechCacheKeySource(provider: SpeechProviderConfig, markdown: s
   ]);
 }
 
-/**
- * Uploads a recording to the provider's speech-to-text endpoint and returns the text.
- * `file` is a Blob on the web; React Native passes its `{ uri, name, type }` file shape.
- */
 // Apple names these languages differently from Whisper's ISO 639-1 list.
 const TRANSCRIPTION_LANGUAGE_ALIASES: Readonly<Record<string, string>> = {
   nb: "no",
@@ -180,6 +176,8 @@ const TRANSCRIPTION_LANGUAGE_ALIASES: Readonly<Record<string, string>> = {
 };
 
 /**
+ * Uploads a recording to the provider's speech-to-text endpoint and returns the text.
+ * `file` is a Blob on the web; React Native passes its `{ uri, name, type }` file shape.
  * `language` is a locale or language tag; providers get its ISO 639-1 language. A provider that
  * rejects the language is asked once more without it, so it detects the language itself.
  */
