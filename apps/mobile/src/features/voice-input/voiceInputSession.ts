@@ -22,6 +22,8 @@ export type VoiceInputTarget = {
   readonly label?: string;
   readonly readDraft: () => VoiceDraftSnapshot | null;
   readonly commitDraft: VoiceInputControllerDependencies["commitDraft"];
+  /** Sends the committed draft after stop and send; absent where dictation cannot send. */
+  readonly send?: () => void;
   readonly subscribe: () => () => void;
   /** The thread the text goes to, so dictation can listen for its language. */
   readonly dictation?: DictationContext;
@@ -42,7 +44,7 @@ export type VoiceRecordingSample = {
 
 export type VoiceInputSessionDependencies = Omit<
   VoiceInputControllerDependencies,
-  "readDraft" | "commitDraft" | "onStateChange" | "getTranscriber"
+  "readDraft" | "commitDraft" | "sendDraft" | "onStateChange" | "getTranscriber"
 > & {
   readonly getTranscriber: (target: VoiceInputTarget | null) => VoiceTranscriber | null;
   /** Reads the live recorder, or null when it is not capturing. */
@@ -59,10 +61,12 @@ export function createVoiceInputTarget(
   commitDraft: VoiceInputTarget["commitDraft"],
   selection: VoiceDraftSnapshot["selection"],
   subscribeToChanges: (onChange: () => void) => () => void,
+  send?: () => void,
 ): VoiceInputTarget {
   let revision = 0;
   return {
     ownerKey,
+    ...(send ? { send } : {}),
     readDraft: () => {
       const text = readText();
       if (text === null) return null;
@@ -111,6 +115,7 @@ export class VoiceInputSession {
       onStateChange: (state) => this.handleStateChange(state),
       readDraft: () => this.target?.readDraft() ?? null,
       commitDraft: (text, selection) => this.target?.commitDraft(text, selection),
+      sendDraft: () => this.target?.send?.(),
     });
   }
 

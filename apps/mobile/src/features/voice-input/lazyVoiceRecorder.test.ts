@@ -119,6 +119,7 @@ describe("createLazyVoiceRecorder", () => {
           revision: 0,
         }),
         commitDraft: () => undefined,
+        sendDraft: () => undefined,
         onStateChange: () => undefined,
       });
       return { ...harness, controller, deleted };
