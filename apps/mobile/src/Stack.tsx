@@ -117,6 +117,11 @@ import { SettingsKeyboardRouteScreen } from "./features/settings/SettingsKeyboar
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsVoiceRouteScreen } from "./features/settings/SettingsVoiceRouteScreen";
 import { SettingsVoiceModelsRouteScreen } from "./features/settings/SettingsVoiceModelsRouteScreen";
+import {
+  SettingsSpeechRoleRouteScreen,
+  SettingsSpeechVoiceRouteScreen,
+} from "./features/speech/SettingsSpeechPickers";
+import { SettingsSpeechProviderRouteScreen } from "./features/speech/SettingsSpeechProviderRouteScreen";
 import { SettingsSpeechRouteScreen } from "./features/speech/SettingsSpeechRouteScreen";
 import {
   SettingsOpenSourceLicenseRouteScreen,
@@ -287,6 +292,22 @@ const SETTINGS_SCREENS = {
     screen: SettingsSpeechRouteScreen,
     linking: "settings/speech",
     options: settingsPage("Speech"),
+  }),
+  SettingsSpeechRole: createNativeStackScreen({
+    screen: SettingsSpeechRoleRouteScreen,
+    linking: "settings/speech/:role",
+    options: ({ route }) =>
+      settingsPage(route.params.role === "dictation" ? "Transcribe with" : "Read with"),
+  }),
+  SettingsSpeechProvider: createNativeStackScreen({
+    screen: SettingsSpeechProviderRouteScreen,
+    linking: "settings/speech/providers/:providerId",
+    options: settingsPage("Provider"),
+  }),
+  SettingsSpeechVoice: createNativeStackScreen({
+    screen: SettingsSpeechVoiceRouteScreen,
+    linking: "settings/speech/providers/:providerId/voice",
+    options: settingsPage("Voice"),
   }),
   SettingsFollowUp: createNativeStackScreen({
     screen: SettingsFollowUpRouteScreen,

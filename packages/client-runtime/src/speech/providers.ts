@@ -139,9 +139,13 @@ export interface SpeechVoice {
   readonly name: string;
 }
 
-export async function listElevenLabsVoices(apiKey: string): Promise<SpeechVoice[]> {
+export async function listElevenLabsVoices(
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<SpeechVoice[]> {
   const response = await speechFetch(`${ELEVENLABS_BASE_URL}/voices`, {
     headers: { "xi-api-key": apiKey.trim() },
+    ...(signal ? { signal } : {}),
   });
   if (!response.ok) throw await responseError(response, "ElevenLabs");
   const body = (await response.json()) as {
