@@ -192,6 +192,7 @@ import { useThreadTurnSubagents } from "./ThreadAgentsSheet";
 import { ComposerQueuedEditBanner } from "./ComposerQueuedEdit";
 import { useThreadQueuedCount } from "./ThreadQueueControl";
 import { ThreadGuestShareBar } from "./ThreadGuestShareBar";
+import { ConversationBar } from "../handsfree/ConversationBar";
 import { ReadNewRepliesBar } from "../speech/ReadNewRepliesBar";
 import type { ThreadContentPresentation } from "./threadContentPresentation";
 import { resolveThreadFeedSubmissionAnchor } from "./thread-feed-live-follow";
@@ -1445,6 +1446,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                     threadRef={props.selectedThreadDetailRef}
                     canOperateThread={props.canOperateThread}
                   />
+                  <ConversationBar threadRef={props.selectedThreadDetailRef} />
                   <ReadNewRepliesBar threadRef={props.selectedThreadDetailRef} />
                   {props.feedbackSubmissions.map((submission) => (
                     <ComposerFeedback

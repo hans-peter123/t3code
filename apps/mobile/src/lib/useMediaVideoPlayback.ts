@@ -4,12 +4,13 @@ import type { VideoPlayer } from "expo-video";
 import { useEffect, useRef } from "react";
 import { AppState } from "react-native";
 
+import { explainAudioSessionRefusal } from "./audioSessionRefusal";
 import { useFullscreenVideoOpen, useMediaAudioSessionHold } from "./videoAudioSession";
 
 export function useMediaVideoPlayback(
   player: VideoPlayer,
   options: { readonly paused: boolean; readonly visible?: boolean },
-  playback: { play(): Promise<void>; pause(): void },
+  playback: { play(): Promise<void>; pause(): void; readonly requested: boolean },
 ) {
   const focused = useIsFocused();
   const fullscreenVideoOpen = useFullscreenVideoOpen();
@@ -40,8 +41,11 @@ export function useMediaVideoPlayback(
     const requestedWhileActive = active.current;
     // Returning to the content must not revive playback interrupted during loading.
     return () => {
-      if (requestedWhileActive && active.current && requestedAt === interruption.current)
-        return playback.play();
+      if (requestedWhileActive && active.current && requestedAt === interruption.current) {
+        return playback.play().then(() => {
+          if (!playback.requested) explainAudioSessionRefusal("play videos");
+        });
+      }
     };
   };
 

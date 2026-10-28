@@ -27,6 +27,7 @@ import {
 import {
   acquireAudioSession,
   activateAudioSession,
+  conversationHoldsAudioSession,
   isAudioSessionOwner,
   releaseAudioSession,
 } from "../../lib/audioSession";
@@ -343,7 +344,13 @@ async function claimAudioSession(): Promise<boolean> {
     () => stopSpeech(),
     () => void setIsAudioActiveAsync(false).catch(() => {}),
   );
-  if (!isAudioSessionOwner(token)) throw new Error("Finish dictating to read aloud.");
+  if (!isAudioSessionOwner(token)) {
+    throw new Error(
+      conversationHoldsAudioSession()
+        ? "End the conversation to read aloud."
+        : "Finish dictating to read aloud.",
+    );
+  }
   audioToken = token;
   return activateAudioSession(token, false, true);
 }

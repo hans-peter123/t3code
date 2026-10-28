@@ -1,5 +1,6 @@
 import { isDraftThreadRoute } from "./features/threads/thread-route-state";
 import { ComponentCatalogScreen } from "./features/development/ComponentCatalogScreen";
+import { ConversationRouteScreen } from "./features/handsfree/ConversationRouteScreen";
 import { PullRequestGuideStopScreen } from "./features/pull-requests/guide/PullRequestGuideScreen";
 import { PullRequestInlineCommentScreen } from "./features/pull-requests/PullRequestInlineCommentScreen";
 import { PullRequestDiscussionScreen } from "./features/pull-requests/PullRequestDiscussionScreen";
@@ -118,7 +119,6 @@ import {
 import { SettingsKeyboardRouteScreen } from "./features/settings/SettingsKeyboardRouteScreen";
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsMicrophoneRouteScreen } from "./features/settings/SettingsMicrophoneRouteScreen";
-import { SettingsHandsFreeProbeRouteScreen } from "./features/speech/SettingsHandsFreeProbeRouteScreen";
 import {
   SettingsDictationLanguageRouteScreen,
   SettingsSpeechRoleRouteScreen,
@@ -406,11 +406,6 @@ const SETTINGS_SCREENS = {
     screen: SettingsSpeechProviderRouteScreen,
     linking: "settings/voice/providers/:providerId",
     options: { ...SETTINGS_PAGE_OPTIONS, title: "Provider" },
-  }),
-  SettingsHandsFreeProbe: createNativeStackScreen({
-    screen: SettingsHandsFreeProbeRouteScreen,
-    linking: "settings/voice/hands-free-test",
-    options: { ...SETTINGS_PAGE_OPTIONS, title: "Hands-free test" },
   }),
   SettingsSpeechVoice: createNativeStackScreen({
     screen: SettingsSpeechVoiceRouteScreen,
@@ -861,6 +856,15 @@ const RootStackConfig = createWorkspaceStackNavigator({
         gestureEnabled: false,
         autoHideHomeIndicator: true,
         navigationBarHidden: true,
+      },
+    }),
+    ThreadConversation: createNativeStackScreen({
+      screen: ConversationRouteScreen,
+      linking: `${THREAD_LINKING_PREFIX}/conversation`,
+      options: {
+        presentation: "fullScreenModal",
+        headerShown: false,
+        gestureEnabled: false,
       },
     }),
     ThreadBrowserPreview: createNativeStackScreen({

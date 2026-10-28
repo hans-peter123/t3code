@@ -75,7 +75,7 @@ import {
   useComposerDraftSettings,
 } from "./use-composer-drafts";
 import {
-  resolveComposerDispatchMode,
+  resolveFollowUpDispatchMode,
   type ActiveTurnComposerAction,
 } from "@t3tools/client-runtime/state/composer-dispatch";
 import { Atom } from "effect/reactivity";
@@ -626,21 +626,15 @@ export function useThreadComposerState() {
     // Steering uses "auto" so an ended turn queues a run instead of restoring the draft.
     // An approval redirect must steer the waiting turn instead of queueing behind it.
     const activeTurnDefault = beforeDispatch !== undefined ? "steer" : followUpBehavior;
-    const followUpAction = resolveComposerDispatchMode({
-      running: activeThreadBusy && canSteerActiveTurn,
+    const followUpDispatchMode = resolveFollowUpDispatchMode({
+      running: activeThreadBusy,
+      canSteer: canSteerActiveTurn,
+      setupRunning: [selectedThreadActivityRun?.status, selectedThreadRuntime?.status].some(
+        (status) => status === "preparing" || status === "starting",
+      ),
       alternateModifier: followUpOverride !== undefined && followUpOverride !== activeTurnDefault,
       activeTurnDefault,
     });
-    const setupRunning = [selectedThreadActivityRun?.status, selectedThreadRuntime?.status].some(
-      (status) => status === "preparing" || status === "starting",
-    );
-    const followUpDispatchMode = setupRunning
-      ? "queue"
-      : followUpAction === "auto"
-        ? null
-        : followUpAction === "queue"
-          ? "queue"
-          : "auto";
 
     const metadata = makeQueuedMessageMetadata();
     const messageId = MessageId.make(metadata.messageId);

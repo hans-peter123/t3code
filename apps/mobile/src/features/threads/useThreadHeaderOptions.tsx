@@ -1,5 +1,6 @@
 import { useWorkspaceSidebarHeaderItem } from "../layout/useWorkspaceSidebarHeaderItem";
 import { StackActions, useNavigation } from "@react-navigation/native";
+import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { threadHeaderAppearance } from "./thread-header-appearance";
 import { isDuoDevice } from "../../lib/device-type";
 import type { AppNativeStackNavigationOptions } from "../../native/StackHeader";
@@ -7,6 +8,9 @@ import { useDeviceType } from "../../native/native-layout-metrics";
 import { useNativeWorkspaceColumnsSupported } from "../../native/NativeWorkspaceColumns";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { withNativeGlassHeaderItem } from "../layout/native-glass-header-items";
+import { useConversationRunning } from "../handsfree/conversation";
+import { conversationsSupported } from "../handsfree/conversationAvailability";
+import { startConversation } from "../handsfree/startConversation";
 import {
   ThreadGitControls,
   useThreadGitCenterHeaderItems,
@@ -30,8 +34,36 @@ export function useThreadHeaderOptions(props: {
   const navigation = useNavigation();
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const sidebarHeaderItem = useWorkspaceSidebarHeaderItem();
-  const threadCenterHeaderItems = useThreadGitCenterHeaderItems(props.gitControls);
-  const compactRightHeaderItems = useThreadGitRightHeaderItems(props.gitControls);
+  const conversationRef =
+    conversationsSupported && !props.draft && props.gitControls.hasThread !== false
+      ? {
+          environmentId: EnvironmentId.make(String(props.gitControls.environmentId)),
+          threadId: ThreadId.make(String(props.gitControls.threadId)),
+        }
+      : null;
+  const conversationRunning = useConversationRunning(conversationRef);
+  const conversationItems: NativeHeaderItems = conversationRef
+    ? [
+        {
+          accessibilityLabel: conversationRunning ? "Open conversation" : "Start conversation",
+          icon: { name: "headphones", type: "sfSymbol" as const },
+          identifier: "thread-right-conversation",
+          label: "Conversation",
+          onPress: () => void startConversation(conversationRef),
+          sharesBackground: true,
+          type: "button" as const,
+          variant: "plain" as const,
+        },
+      ]
+    : [];
+  const threadCenterHeaderItems = [
+    ...useThreadGitCenterHeaderItems(props.gitControls),
+    ...conversationItems,
+  ];
+  const compactRightHeaderItems = [
+    ...useThreadGitRightHeaderItems(props.gitControls),
+    ...conversationItems,
+  ];
   const splitLeftHeaderItems: NativeHeaderItems = [
     ...(!usesDuoHeader
       ? [
@@ -108,6 +140,8 @@ export function useThreadHeaderOptions(props: {
       gitStatus?.isDefaultRef,
       gitStatus?.refName,
       gitStatus?.pr?.url,
+      conversationRef !== null,
+      conversationRunning,
     ],
     sidebar: false,
     fallback:

@@ -195,6 +195,39 @@ microphone. Swipe a device left to forget it.
 Transcription runs on your device. T3 Code deletes the temporary audio after
 transcription or cancellation; only the message text is sent when you submit.
 
+## Conversations on iPhone
+
+A conversation lets you talk with a thread without looking at the screen, for
+example while driving. Start one with the headphones button in the thread's
+header, or **Start conversation** in a thread's menu in the list. It needs
+dictation and a voice set up in **Settings → Voice**.
+
+T3 Code reads each reply, plays a tone, and listens. Nothing is sent until you
+press **Done**, on screen, on the lock screen, or with your AirPods or car's
+play/pause button. Pressing it while a reply is read skips to listening. If it
+heard nothing, it waits for your next press. Listening stops after 5 minutes
+without sending anything. Replies
+are read as the short version or in full, as chosen in **Settings → Voice**; the
+conversation screen switches between them.
+
+The conversation keeps going with the iPhone locked. When another thread
+finishes, you hear its title. Approvals and questions from the agent are only
+announced; answer them on screen. A message you speak while one is open is
+queued behind it. A message that couldn't be sent stays in the thread's
+composer. If the microphone stops after a call or a new Bluetooth connection
+while locked, open T3 Code to turn it back on.
+
+When your AirPods or the car disconnect, the conversation pauses so nothing
+plays on the speaker or records on the iPhone's microphone. What you were saying
+is not sent. Replies and announcements wait until your next press, which reads
+them first. Taking out one AirPod counts as a press: it sends what you said
+while listening, or starts listening otherwise.
+
+End the conversation from its screen, the bar above the composer, or the
+thread's menu in the list. It also ends by itself with a falling tone after 30
+minutes with nothing happening in it or its thread, and when its thread is
+archived or deleted.
+
 ## Queued messages
 
 On web and desktop, the composer shows **Interrupt** while the agent is working and the draft is

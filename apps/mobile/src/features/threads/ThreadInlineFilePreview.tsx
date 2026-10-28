@@ -19,6 +19,7 @@ import {
   releaseAudioSession,
 } from "../../lib/audioSession";
 import { usePlaybackAudioPlayer } from "../voice-input/usePlaybackAudioPlayer";
+import { explainAudioSessionRefusal } from "../../lib/audioSessionRefusal";
 
 type PreviewProps = {
   readonly source: FilePreviewSource;
@@ -129,7 +130,10 @@ function InlineAudio(props: PreviewProps & { readonly resolveUri: () => Promise<
         } catch {}
       },
     );
-    if (!isAudioSessionOwner(token)) return;
+    if (!isAudioSessionOwner(token)) {
+      explainAudioSessionRefusal("play audio");
+      return;
+    }
     props.onPlaybackStart?.();
     audioToken.current = token;
     requestPlayback(true);

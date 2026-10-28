@@ -55,7 +55,9 @@ export {
 } from "./timeline.ts";
 export {
   HANDS_FREE_COPY,
+  HANDS_FREE_LISTEN_LIMIT_MS,
   HANDS_FREE_OFF,
+  handsFreePressEvent,
   handsFreeReducer,
   type HandsFreeEffect,
   type HandsFreeEvent,
@@ -63,6 +65,7 @@ export {
   type HandsFreeSpeech,
   type HandsFreeState,
   type HandsFreeStep,
+  type HandsFreeUnsent,
 } from "./handsFree.ts";
 export {
   decideSpeak,
@@ -73,3 +76,15 @@ export {
   type SpokenText,
 } from "./readMode.ts";
 export { nextAutoRead, type AutoReadCursor, type AutoReadMessage } from "./autoRead.ts";
+export {
+  handsFreeSeedThreadFromShell,
+  handsFreeThreadEvents,
+  handsFreeThreadFromDetail,
+  handsFreeThreadFromShell,
+  handsFreeThreadRequest,
+  handsFreeWorkingAfterSend,
+  NO_THREADS_SEEN,
+  type HandsFreeThreadRequest,
+  type HandsFreeThreadSnapshot,
+  type HandsFreeThreadsSeen,
+} from "./handsFreeThreads.ts";

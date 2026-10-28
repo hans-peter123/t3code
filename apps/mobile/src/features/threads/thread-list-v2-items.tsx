@@ -1,3 +1,6 @@
+import { conversation, useConversationRunning } from "../handsfree/conversation";
+import { conversationsSupported } from "../handsfree/conversationAvailability";
+import { openConversation, startConversation } from "../handsfree/startConversation";
 import * as Dialog from "../../components/ui/Dialog";
 import type { ThreadRowProviderInstance } from "./thread-provider-instance";
 import {
@@ -631,6 +634,11 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly simultaneousSwipeGesture?: ComponentProps<typeof ThreadSwipeable>["simultaneousWith"];
 }) {
   const { width: windowWidth, fontScale } = useWindowDimensions();
+  const conversationRunning = useConversationRunning(
+    conversationsSupported
+      ? { environmentId: props.thread.environmentId, threadId: props.thread.id }
+      : null,
+  );
   const titleTypography = useScaledTextRole("body");
   const metadataTypography = useScaledTextRole("label");
   const projectIconSize = titleTypography.fontSize * 1.25 * fontScale;
@@ -935,6 +943,13 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       if (nativeEvent.event === "copy-thread-id") {
         copyTextWithHaptic(thread.id, { target: "thread-id" });
       }
+      if (nativeEvent.event === "conversation") {
+        void startConversation({ environmentId: thread.environmentId, threadId: thread.id });
+      }
+      if (nativeEvent.event === "open-conversation") {
+        openConversation({ environmentId: thread.environmentId, threadId: thread.id });
+      }
+      if (nativeEvent.event === "end-conversation") void conversation.stop();
       if (nativeEvent.event === "delete") handleDelete();
       if (nativeEvent.event === "snooze:custom") {
         setCustomSnoozeOpen(true);
@@ -1067,6 +1082,15 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         </Text>
         <View className="flex-row items-center gap-1.5" style={{ minHeight: titleLineHeight }}>
           {props.hasQueuedMessages ? <QueuedMessageIcon selected={selected} /> : null}
+          {conversationRunning ? (
+            <SymbolView
+              name="headphones"
+              size={11}
+              tintColorClassName={rowAppearance.mutedIconTintClassName}
+              type="monochrome"
+              accessibilityLabel="Conversation running"
+            />
+          ) : null}
           {pinnedRow ? (
             <SymbolView
               name="pin"
@@ -1424,6 +1448,14 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
                 : []),
               { id: "copy-thread", title: "Copy thread", image: "text.bubble" },
               { id: "copy-thread-id", title: "Copy thread ID", image: "doc.on.doc" },
+              ...(conversationRunning
+                ? [
+                    { id: "open-conversation", title: "Open conversation", image: "headphones" },
+                    { id: "end-conversation", title: "End conversation", image: "stop.circle" },
+                  ]
+                : conversationsSupported && thread.archivedAt === null
+                  ? [{ id: "conversation", title: "Start conversation", image: "headphones" }]
+                  : []),
               ...(snoozedRow
                 ? snoozedMenuActions
                 : !props.settlementSupported

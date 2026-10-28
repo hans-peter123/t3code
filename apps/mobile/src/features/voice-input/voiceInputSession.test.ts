@@ -146,6 +146,36 @@ describe("global voice input", () => {
     },
   );
 
+  it("keeps a conversation's session from dictation and playback until it ends", async () => {
+    const ended = vi.fn();
+    const conversation = acquireAudioSession("conversation", ended);
+    expect(await activateAudioSession(conversation)).toBe(true);
+    expect(audio.setMode).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allowsRecording: true, allowsBackgroundRecording: true }),
+    );
+    for (const kind of ["recording", "playback"] as const) {
+      const refused = acquireAudioSession(kind);
+      expect(await activateAudioSession(refused)).toBe(false);
+      await releaseAudioSession(refused);
+    }
+    expect(ended).not.toHaveBeenCalled();
+    expect(isAudioSessionOwner(conversation)).toBe(true);
+    await releaseAudioSession(conversation);
+    expect(audio.setMode).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allowsRecording: false, allowsBackgroundRecording: false }),
+    );
+    expect(audio.setActive).toHaveBeenLastCalledWith(false);
+    const recording = acquireAudioSession("recording");
+    expect(await activateAudioSession(recording)).toBe(true);
+    // Dictation cannot hand its recorder over, so a conversation waits for it to finish.
+    const tooEarly = acquireAudioSession("conversation");
+    expect(await activateAudioSession(tooEarly)).toBe(false);
+    expect(isAudioSessionOwner(recording)).toBe(true);
+    await releaseAudioSession(tooEarly);
+    await releaseAudioSession(recording);
+    vi.clearAllMocks();
+  });
+
   it.each([
     { selection: { start: 6, end: 11 }, expected: "hello spoken text", cursor: 17 },
     { selection: { start: 6, end: 6 }, expected: "hello spoken text world", cursor: 18 },

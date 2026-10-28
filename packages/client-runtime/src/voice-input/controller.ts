@@ -4,6 +4,9 @@ import type { PreparedVoiceTranscription, VoiceTranscriber } from "./transcripti
 
 export const VOICE_RECORDING_LIMIT_SECONDS = 5 * 60;
 
+/** A reason recording cannot start that the user can act on; its message is shown as is. */
+export class VoiceRecordingUnavailableError extends Error {}
+
 export type VoiceInputPhase = "idle" | "preparing" | "recording" | "transcribing" | "error";
 
 export type VoiceInputState = {
@@ -280,9 +283,14 @@ export class VoiceInputController {
       this.capturedDraft = capturedDraft;
       this.dependencies.recorder.record({ forDuration: VOICE_RECORDING_LIMIT_SECONDS });
       this.setState({ phase: "recording", error: null, errorAction: null });
-    } catch {
+    } catch (error) {
       if (this.isCurrent(operationToken))
-        this.setError("Could not start voice recording.", "retry");
+        this.setError(
+          error instanceof VoiceRecordingUnavailableError
+            ? error.message
+            : "Could not start voice recording.",
+          "retry",
+        );
     } finally {
       if (sessionToken && this.sessionToken === sessionToken) {
         if (this.isCurrent(operationToken) && this.state.phase === "error") {

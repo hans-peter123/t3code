@@ -5,6 +5,7 @@ import {
   resolveTranscriptCommit,
   VoiceInputController,
   VOICE_RECORDING_LIMIT_SECONDS,
+  VoiceRecordingUnavailableError,
   type VoiceDraftSnapshot,
   type VoiceInputControllerDependencies,
   type VoiceRecorder,
@@ -122,6 +123,15 @@ describe("VoiceInputController", () => {
     await denied.controller.start();
     expect(denied.controller.currentState.errorAction).toBe("settings");
     expect(denied.recorder.record).not.toHaveBeenCalled();
+
+    const refused = createHarness({
+      configureRecording: async () => {
+        throw new VoiceRecordingUnavailableError("End the conversation to dictate.");
+      },
+    });
+    await refused.controller.start();
+    expect(refused.controller.currentState.error).toBe("End the conversation to dictate.");
+    expect(refused.recorder.record).not.toHaveBeenCalled();
   });
 
   it.each(["permission", "transcription"] as const)(
