@@ -1,14 +1,15 @@
 import { randomUUID } from "expo-crypto";
 import { useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text, AppTextInput } from "../../components/ui/AppText";
+import { SymbolView } from "../../components/ui/AppSymbol";
 import * as Dialog from "../../components/ui/Dialog";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
-import { SegmentedControl } from "../../components/ui/SegmentedControl";
-import { SettingsActionRow } from "../settings/components/SettingsActionRow";
-import { SettingsChoiceRow } from "../settings/components/SettingsChoiceRow";
+import { ListActionRow as SettingsActionRow } from "../../components/ui/ListActionRow";
+import { ListChoiceRow as SettingsChoiceRow } from "../../components/ui/ListChoiceRow";
+import { ListRowLayout } from "../../components/ui/ListRowLayout";
 import { SettingsSection } from "../settings/components/SettingsSection";
 import {
   describeTranscriptionTest,
@@ -20,9 +21,9 @@ import { setSpeechPlaybackRate, speakMessage, stopSpeech } from "./speechPlaybac
 import { transcribeRecording } from "./speechTranscription";
 import {
   OPENAI_VOICES,
-  PLAYBACK_RATES,
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,
+  stepPlaybackRate,
   type SpeechProviderConfig,
   type SpeechProviderKind,
   transcriptionProviderProblem,
@@ -44,6 +45,75 @@ async function testDictation(provider: SpeechProviderConfig): Promise<string> {
   clearTimeout(timeout);
   file.delete();
   return describeTranscriptionTest(result!);
+}
+
+function setPlaybackRate(playbackRate: number) {
+  setSpeechPlaybackRate(playbackRate);
+  void updateSpeechSettings((current) => ({ ...current, playbackRate }));
+}
+
+function RateStepButton(props: {
+  readonly icon: "minus" | "plus";
+  readonly label: string;
+  readonly disabled: boolean;
+  readonly onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={props.label}
+      disabled={props.disabled}
+      hitSlop={6}
+      onPress={props.onPress}
+      className="size-9 items-center justify-center rounded-full bg-subtle"
+      style={({ pressed }) => ({ opacity: props.disabled ? 0.35 : pressed ? 0.55 : 1 })}
+    >
+      <SymbolView
+        name={props.icon}
+        size={15}
+        tintColorClassName="accent-icon"
+        type="monochrome"
+        weight="semibold"
+      />
+    </Pressable>
+  );
+}
+
+function PlaybackSpeedRow(props: { readonly rate: number }) {
+  const slower = stepPlaybackRate(props.rate, -1);
+  const faster = stepPlaybackRate(props.rate, 1);
+  return (
+    <ListRowLayout
+      label="Speed"
+      description={props.rate === 1 ? undefined : "Tap the value to reset to 1×."}
+      accessory={
+        <View className="flex-row items-center gap-2">
+          <RateStepButton
+            icon="minus"
+            label="Slower"
+            disabled={slower === props.rate}
+            onPress={() => setPlaybackRate(slower)}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Speed ${props.rate} times, reset to normal`}
+            disabled={props.rate === 1}
+            onPress={() => setPlaybackRate(1)}
+          >
+            <Text className="min-w-14 text-center font-t3-medium text-base tabular-nums text-foreground">
+              {`${props.rate.toFixed(2)}×`}
+            </Text>
+          </Pressable>
+          <RateStepButton
+            icon="plus"
+            label="Faster"
+            disabled={faster === props.rate}
+            onPress={() => setPlaybackRate(faster)}
+          />
+        </View>
+      }
+    />
+  );
 }
 
 const SAMPLE_TEXT = "Hi! This is how T3 Code reads your messages aloud.";
@@ -423,16 +493,7 @@ export function SettingsSpeechRouteScreen() {
         {editing ? <ProviderSettings key={editing.id} provider={editing} /> : null}
 
         <SettingsSection title="Playback speed">
-          <View className="p-3">
-            <SegmentedControl
-              options={PLAYBACK_RATES.map((rate) => ({ value: rate, label: `${rate}×` }))}
-              selected={settings.playbackRate}
-              onSelect={(playbackRate) => {
-                setSpeechPlaybackRate(playbackRate);
-                void updateSpeechSettings((current) => ({ ...current, playbackRate }));
-              }}
-            />
-          </View>
+          <PlaybackSpeedRow rate={settings.playbackRate} />
         </SettingsSection>
 
         <Text className="px-2 text-sm text-foreground-muted">

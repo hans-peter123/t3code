@@ -71,7 +71,25 @@ export const OPENAI_VOICES = [
   "verse",
 ] as const;
 
-export const PLAYBACK_RATES = [1, 1.25, 1.5, 1.75, 2] as const;
+const PLAYBACK_RATE_STEP = 0.05;
+const MIN_PLAYBACK_RATE = 0.75;
+const MAX_PLAYBACK_RATE = 2;
+
+/** Snaps to the nearest 0.05 step within the supported range. */
+function clampPlaybackRate(rate: number): number {
+  const steps = Math.round((rate - MIN_PLAYBACK_RATE) / PLAYBACK_RATE_STEP);
+  const snapped = MIN_PLAYBACK_RATE + steps * PLAYBACK_RATE_STEP;
+  return Math.round(Math.min(MAX_PLAYBACK_RATE, Math.max(MIN_PLAYBACK_RATE, snapped)) * 100) / 100;
+}
+
+export function stepPlaybackRate(rate: number, steps: number): number {
+  return clampPlaybackRate(rate + steps * PLAYBACK_RATE_STEP);
+}
+
+export const PLAYBACK_RATES: readonly number[] = Array.from(
+  { length: Math.round((MAX_PLAYBACK_RATE - MIN_PLAYBACK_RATE) / PLAYBACK_RATE_STEP) + 1 },
+  (_, index) => clampPlaybackRate(MIN_PLAYBACK_RATE + index * PLAYBACK_RATE_STEP),
+);
 
 export const DEFAULT_SPEECH_SETTINGS: SpeechSettings = {
   providers: [],
@@ -127,9 +145,8 @@ export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
     ? raw.transcriptionProviderId
     : null;
   const playbackRate =
-    typeof raw.playbackRate === "number" &&
-    (PLAYBACK_RATES as readonly number[]).includes(raw.playbackRate)
-      ? raw.playbackRate
+    typeof raw.playbackRate === "number" && Number.isFinite(raw.playbackRate)
+      ? clampPlaybackRate(raw.playbackRate)
       : 1;
   return { providers, activeProviderId, transcriptionProviderId, playbackRate };
 }

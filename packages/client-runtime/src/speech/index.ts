@@ -7,6 +7,7 @@ export {
   OPENAI_VOICES,
   PLAYBACK_RATES,
   sanitizeSpeechSettings,
+  stepPlaybackRate,
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,
   transcriptionProvider,
