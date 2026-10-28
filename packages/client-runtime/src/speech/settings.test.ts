@@ -30,6 +30,15 @@ describe("playback rate", () => {
   });
 });
 
+describe("read mode", () => {
+  it("defaults to the short version and keeps only known modes", () => {
+    const readMode = (value: unknown) => sanitizeSpeechSettings({ readMode: value }).readMode;
+    expect(readMode(undefined)).toBe("short");
+    expect(readMode("full")).toBe("full");
+    expect(readMode("loud")).toBe("short");
+  });
+});
+
 describe("providers", () => {
   it("keeps a picked voice's name and drops anything that is not text", () => {
     const voiceName = (value: unknown) =>

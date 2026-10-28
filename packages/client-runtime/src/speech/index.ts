@@ -17,6 +17,7 @@ export {
   withSpeechProviderRemoved,
   type SpeechProviderConfig,
   type SpeechProviderKind,
+  type SpeechReadMode,
   type SpeechSettings,
   type SpeechSettingsStorage,
   type SpeechSettingsStore,
@@ -51,3 +52,14 @@ export {
   speechTimelineDuration,
   type SpeechTimelinePosition,
 } from "./timeline.ts";
+export {
+  HANDS_FREE_COPY,
+  HANDS_FREE_OFF,
+  handsFreeReducer,
+  type HandsFreeEffect,
+  type HandsFreeEvent,
+  type HandsFreePhase,
+  type HandsFreeSpeech,
+  type HandsFreeState,
+  type HandsFreeStep,
+} from "./handsFree.ts";

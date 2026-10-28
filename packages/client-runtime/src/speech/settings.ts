@@ -1,6 +1,9 @@
 // @effect-diagnostics globalConsole:off - a plain store shared by React Native and the web.
 export type SpeechProviderKind = "openai" | "elevenlabs" | "openai-compatible";
 
+/** "short" reads the server-written spoken summary of the thread; "full" reads the whole reply. */
+export type SpeechReadMode = "short" | "full";
+
 export interface SpeechProviderConfig {
   readonly id: string;
   readonly kind: SpeechProviderKind;
@@ -26,6 +29,8 @@ export interface SpeechSettings {
   readonly playbackRate: number;
   /** Reads each finished reply in the open thread aloud. */
   readonly autoRead: boolean;
+  /** What a reply read aloud plays by default on this device. */
+  readonly readMode: SpeechReadMode;
 }
 
 export const SPEECH_PROVIDER_KINDS: Record<
@@ -101,6 +106,7 @@ export const DEFAULT_SPEECH_SETTINGS: SpeechSettings = {
   transcriptionProviderId: null,
   playbackRate: 1,
   autoRead: false,
+  readMode: "short",
 };
 
 export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
@@ -160,6 +166,7 @@ export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
     transcriptionProviderId,
     playbackRate,
     autoRead: raw.autoRead === true,
+    readMode: raw.readMode === "full" ? "full" : "short",
   };
 }
 
