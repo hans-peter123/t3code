@@ -647,6 +647,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["generated thread titles source control content default provider"],
   },
   {
+    id: "spoken-summary-model",
+    title: "Spoken summary model",
+    to: "/settings/threads",
+    scope: "environment-defaults",
+    searchTerms: ["read aloud voice speech short version text to speech listen"],
+  },
+  {
     id: "thread-title-instructions",
     title: "Thread title instructions",
     to: "/settings/threads",

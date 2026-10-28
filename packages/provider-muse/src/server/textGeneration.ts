@@ -22,6 +22,7 @@ import {
   buildBranchNamePrompt,
   buildCommitMessagePrompt,
   buildPrContentPrompt,
+  buildSpokenSummaryPrompt,
   buildThreadTitlePrompt,
 } from "@t3tools/provider-core/server/textGenerationPrompts";
 import {
@@ -342,11 +343,22 @@ export const makeMuseTextGeneration = Effect.fn("makeMuseTextGeneration")(functi
   });
   const generateReviewGuide: ProviderTextGeneration["generateReviewGuide"] = () =>
     Effect.fail(investigationUnsupported("generateReviewGuide", "Muse Code"));
+  const generateSpokenSummary: ProviderTextGeneration["generateSpokenSummary"] = Effect.fn(
+    "MuseTextGeneration.generateSpokenSummary",
+  )(function* (input) {
+    const generated = yield* runMuseJson({
+      operation: "generateSpokenSummary",
+      ...buildSpokenSummaryPrompt(input),
+      modelSelection: input.modelSelection,
+    });
+    return { text: generated.text.trim() };
+  });
   return {
     generateCommitMessage,
     generatePrContent,
     generateBranchName,
     generateThreadTitle,
     generateReviewGuide,
+    generateSpokenSummary,
   } satisfies ProviderTextGeneration;
 });

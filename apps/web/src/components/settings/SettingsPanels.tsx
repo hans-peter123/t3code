@@ -54,6 +54,7 @@ import { useOptionalSettingsScope, useSettingsScope } from "./SettingsScopeConte
 import { scopedIdleCompaction } from "./scopedSettings";
 import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import { ThreadTitleInstructionsSettings } from "./ThreadTitleInstructionsSettings";
+import { SpokenSummaryModelSettings } from "./SpokenSummaryModelSettings";
 import { SnoozePresetsRow } from "./SnoozePresetsSettings";
 import { useDesktopUpdateState } from "../../state/desktopUpdate";
 import {
@@ -1807,6 +1808,7 @@ export function ThreadsSettingsPanel() {
             )
           }
         />
+        <SpokenSummaryModelSettings />
         <AdvancedSettings
           targetIds={[
             searchableSetting("thread-title-instructions").id,
