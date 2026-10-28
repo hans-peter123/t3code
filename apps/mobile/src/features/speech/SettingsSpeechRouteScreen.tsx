@@ -1,56 +1,24 @@
-import { randomUUID } from "expo-crypto";
-import { useState } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppText as Text, AppTextInput } from "../../components/ui/AppText";
+import { AppText as Text } from "../../components/ui/AppText";
 import { SymbolView } from "../../components/ui/AppSymbol";
-import * as Dialog from "../../components/ui/Dialog";
-import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
-import { ListActionRow as SettingsActionRow } from "../../components/ui/ListActionRow";
-import { ListChoiceRow as SettingsChoiceRow } from "../../components/ui/ListChoiceRow";
+import { ListActionRow } from "../../components/ui/ListActionRow";
+import { ListRow } from "../../components/ui/ListRow";
 import { ListRowLayout } from "../../components/ui/ListRowLayout";
+import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { SettingsSection } from "../settings/components/SettingsSection";
 import {
-  describeTranscriptionTest,
-  listElevenLabsVoices,
-  silentWav,
-  type SpeechVoice,
-} from "@t3tools/client-runtime/speech";
-import { setSpeechPlaybackRate, speakMessage, stopSpeech } from "./speechPlayback";
-import { transcribeRecording } from "./speechTranscription";
-import {
-  OPENAI_VOICES,
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,
   stepPlaybackRate,
   type SpeechProviderConfig,
-  type SpeechProviderKind,
+  type SpeechSettings,
   transcriptionProviderProblem,
-  updateSpeechSettings,
   useSpeechSettings,
 } from "./speechSettings";
-
-/** Uploads a silent recording and reports exactly what the provider answered. */
-async function testDictation(provider: SpeechProviderConfig): Promise<string> {
-  const { File, Paths } = await import("expo-file-system");
-  const file = new File(Paths.cache, "dictation-test.wav");
-  if (file.exists) file.delete();
-  await file.write(silentWav());
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000);
-  const [result] = await Promise.allSettled([
-    transcribeRecording(provider, file.uri, controller.signal),
-  ]);
-  clearTimeout(timeout);
-  file.delete();
-  return describeTranscriptionTest(result!);
-}
-
-function setPlaybackRate(playbackRate: number) {
-  setSpeechPlaybackRate(playbackRate);
-  void updateSpeechSettings((current) => ({ ...current, playbackRate }));
-}
+import { providerLabel, setPlaybackRate, startAddingProvider } from "./speechSettingsEdits";
 
 function RateStepButton(props: {
   readonly icon: "minus" | "plus";
@@ -62,6 +30,7 @@ function RateStepButton(props: {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={props.label}
+      accessibilityState={{ disabled: props.disabled }}
       disabled={props.disabled}
       hitSlop={6}
       onPress={props.onPress}
@@ -79,428 +48,148 @@ function RateStepButton(props: {
   );
 }
 
-function PlaybackSpeedRow(props: { readonly rate: number }) {
-  const slower = stepPlaybackRate(props.rate, -1);
-  const faster = stepPlaybackRate(props.rate, 1);
-  return (
-    <ListRowLayout
-      label="Speed"
-      description={props.rate === 1 ? undefined : "Tap the value to reset to 1×."}
-      accessory={
-        <View className="flex-row items-center gap-2">
-          <RateStepButton
-            icon="minus"
-            label="Slower"
-            disabled={slower === props.rate}
-            onPress={() => setPlaybackRate(slower)}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Speed ${props.rate} times, reset to normal`}
-            disabled={props.rate === 1}
-            onPress={() => setPlaybackRate(1)}
-          >
-            <Text className="min-w-14 text-center font-t3-medium text-base tabular-nums text-foreground">
-              {`${props.rate.toFixed(2)}×`}
-            </Text>
-          </Pressable>
-          <RateStepButton
-            icon="plus"
-            label="Faster"
-            disabled={faster === props.rate}
-            onPress={() => setPlaybackRate(faster)}
-          />
-        </View>
-      }
-    />
-  );
-}
-
-const SAMPLE_TEXT = "Hi! This is how T3 Code reads your messages aloud.";
-
-function providerLabel(provider: SpeechProviderConfig): string {
-  return provider.name.trim() || SPEECH_PROVIDER_KINDS[provider.kind].label;
-}
-
-function addProvider(kind: SpeechProviderKind, onAdded: (id: string) => void) {
-  const defaults = SPEECH_PROVIDER_KINDS[kind];
-  const provider: SpeechProviderConfig = {
-    id: randomUUID(),
-    kind,
-    name: "",
-    apiKey: "",
-    baseUrl: "",
-    model: defaults.defaultModel,
-    voice: defaults.defaultVoice,
-    transcriptionModel: defaults.defaultTranscriptionModel,
-  };
-  void updateSpeechSettings((current) => ({
-    ...current,
-    providers: [...current.providers, provider],
-    // The first provider also turns read aloud on; later ones are picked explicitly.
-    activeProviderId: current.providers.length === 0 ? provider.id : current.activeProviderId,
-  }));
-  onAdded(provider.id);
-}
-
-function editProvider(id: string, patch: Partial<SpeechProviderConfig>) {
-  void updateSpeechSettings((current) => ({
-    ...current,
-    providers: current.providers.map((provider) =>
-      provider.id === id ? { ...provider, ...patch } : provider,
-    ),
-  }));
-}
-
-function Field(props: {
-  readonly label: string;
-  readonly value: string;
-  readonly placeholder?: string;
-  readonly secure?: boolean;
-  readonly keyboardType?: "default" | "url";
-  readonly separated?: boolean;
-  readonly hint?: string;
-  readonly onChange: (value: string) => void;
-}) {
+function PlaybackSpeedRow(props: { readonly rate: number; readonly disabled: boolean }) {
+  const slower = props.disabled ? props.rate : stepPlaybackRate(props.rate, -1);
+  const faster = props.disabled ? props.rate : stepPlaybackRate(props.rate, 1);
   return (
     <View
-      className={
-        props.separated ? "gap-1.5 border-t border-border-subtle px-4 py-3" : "gap-1.5 px-4 py-3"
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel="Speed"
+      accessibilityValue={{ text: `${props.rate} times` }}
+      accessibilityHint={
+        props.disabled
+          ? "Choose a provider to read aloud first."
+          : "Double-tap to reset to normal speed."
       }
+      accessibilityState={{ disabled: props.disabled }}
+      accessibilityActions={[{ name: "increment" }, { name: "decrement" }, { name: "activate" }]}
+      onAccessibilityAction={({ nativeEvent }) => {
+        if (nativeEvent.actionName === "increment") setPlaybackRate(faster);
+        if (nativeEvent.actionName === "decrement") setPlaybackRate(slower);
+        if (nativeEvent.actionName === "activate" && !props.disabled) setPlaybackRate(1);
+      }}
     >
-      <Text className="text-sm text-foreground-muted">{props.label}</Text>
-      <AppTextInput
-        accessibilityLabel={props.label}
-        defaultValue={props.value}
-        placeholder={props.placeholder}
-        secureTextEntry={props.secure}
-        keyboardType={props.keyboardType ?? "default"}
-        autoCapitalize="none"
-        autoCorrect={false}
-        className="min-h-10 rounded-xl px-3 py-2 text-base text-foreground"
-        onChangeText={props.onChange}
+      <ListRowLayout
+        label="Speed"
+        disabled={props.disabled}
+        accessory={
+          <View className="flex-row items-center gap-2">
+            <RateStepButton
+              icon="minus"
+              label="Slower"
+              disabled={slower === props.rate}
+              onPress={() => setPlaybackRate(slower)}
+            />
+            {/* Tapping the value resets to normal speed. */}
+            <Pressable
+              disabled={props.disabled || props.rate === 1}
+              hitSlop={8}
+              onPress={() => setPlaybackRate(1)}
+            >
+              <Text className="min-w-14 text-center font-t3-medium text-base tabular-nums text-foreground">
+                {`${props.rate.toFixed(2)}×`}
+              </Text>
+            </Pressable>
+            <RateStepButton
+              icon="plus"
+              label="Faster"
+              disabled={faster === props.rate}
+              onPress={() => setPlaybackRate(faster)}
+            />
+          </View>
+        }
       />
-      {props.hint ? <Text className="text-xs text-foreground-muted">{props.hint}</Text> : null}
     </View>
   );
 }
 
-function VoicePicker(props: {
-  readonly provider: SpeechProviderConfig;
-  readonly onPick: (voice: string) => void;
-}) {
-  const { provider } = props;
-  const [voices, setVoices] = useState<readonly SpeechVoice[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const options: readonly SpeechVoice[] | null =
-    provider.kind === "openai"
-      ? OPENAI_VOICES.map((voice) => ({ id: voice, name: voice }))
-      : voices;
-
-  return (
-    <>
-      {provider.kind === "elevenlabs" ? (
-        <SettingsActionRow
-          icon="arrow.clockwise"
-          label={voices ? "Reload voices" : "Load voices"}
-          description={provider.apiKey.trim() ? undefined : "Add an API key first."}
-          disabled={!provider.apiKey.trim()}
-          loading={loading}
-          onPress={() => {
-            setLoading(true);
-            listElevenLabsVoices(provider.apiKey)
-              .then(setVoices, (error: unknown) =>
-                Dialog.alert(
-                  "Could not load voices",
-                  error instanceof Error ? error.message : "Try again.",
-                ),
-              )
-              .finally(() => setLoading(false));
-          }}
-        />
-      ) : null}
-      {options?.map((voice) => (
-        <SettingsChoiceRow
-          key={voice.id}
-          label={voice.name}
-          selected={provider.voice === voice.id}
-          separated
-          onPress={() => props.onPick(voice.id)}
-        />
-      ))}
-    </>
-  );
-}
-
-function ProviderSettings(props: { readonly provider: SpeechProviderConfig }) {
-  const { provider } = props;
-  const kind = SPEECH_PROVIDER_KINDS[provider.kind];
-  const [testing, setTesting] = useState(false);
-  const [testingDictation, setTestingDictation] = useState(false);
-  const transcriptionProblem = transcriptionProviderProblem(provider);
-  // A picked voice remounts the uncontrolled voice field; typing must not.
-  const [voicePicks, setVoicePicks] = useState(0);
-  const problem = speechProviderProblem(provider);
-
-  return (
-    <>
-      <SettingsSection title={`${kind.label} settings`}>
-        <Field
-          label="Name"
-          value={provider.name}
-          placeholder={kind.label}
-          onChange={(name) => editProvider(provider.id, { name })}
-        />
-        {provider.kind === "openai-compatible" ? (
-          <Field
-            label="Server URL"
-            value={provider.baseUrl}
-            placeholder="http://my-server:8880/v1"
-            keyboardType="url"
-            separated
-            onChange={(baseUrl) => editProvider(provider.id, { baseUrl })}
-          />
-        ) : null}
-        <Field
-          label={provider.kind === "openai-compatible" ? "API key (optional)" : "API key"}
-          value={provider.apiKey}
-          placeholder={provider.kind === "elevenlabs" ? "sk_…" : "sk-…"}
-          secure
-          separated
-          hint={
-            provider.apiKey.trim()
-              ? `Saved key ending in …${provider.apiKey.trim().slice(-4)}`
-              : "No key saved"
-          }
-          onChange={(apiKey) => editProvider(provider.id, { apiKey: apiKey.trim() })}
-        />
-        <Field
-          label="Speech model (read aloud)"
-          value={provider.model}
-          placeholder={kind.defaultModel}
-          separated
-          onChange={(model) => editProvider(provider.id, { model })}
-        />
-        <Field
-          key={voicePicks}
-          label={provider.kind === "elevenlabs" ? "Voice ID" : "Voice"}
-          value={provider.voice}
-          placeholder={kind.defaultVoice || "Voice ID"}
-          separated
-          onChange={(voice) => editProvider(provider.id, { voice })}
-        />
-        <Field
-          label="Transcription model (dictation)"
-          value={provider.transcriptionModel}
-          placeholder={kind.defaultTranscriptionModel}
-          separated
-          onChange={(transcriptionModel) => editProvider(provider.id, { transcriptionModel })}
-        />
-      </SettingsSection>
-
-      {provider.kind !== "openai-compatible" ? (
-        <SettingsSection title="Voices">
-          <VoicePicker
-            provider={provider}
-            onPick={(voice) => {
-              editProvider(provider.id, { voice });
-              setVoicePicks((count) => count + 1);
-            }}
-          />
-        </SettingsSection>
-      ) : null}
-
-      <SettingsSection
-        footer={
-          [
-            problem ? `Read aloud: ${problem}` : null,
-            transcriptionProblem ? `Dictation: ${transcriptionProblem}` : null,
-          ]
-            .filter(Boolean)
-            .join(" ") || undefined
-        }
-      >
-        <SettingsActionRow
-          icon="play"
-          label="Play sample"
-          disabled={problem !== null}
-          loading={testing}
-          onPress={() => {
-            setTesting(true);
-            speakMessage({
-              messageId: `sample:${provider.id}`,
-              markdown: SAMPLE_TEXT,
-              title: "Voice sample",
-            })
-              .catch((error: unknown) =>
-                Dialog.alert(
-                  "Could not play the sample",
-                  error instanceof Error ? error.message : "Try again.",
-                ),
-              )
-              .finally(() => setTesting(false));
-          }}
-        />
-        <SettingsActionRow
-          icon="mic"
-          label="Test dictation"
-          description="Sends one second of silence to the transcription model"
-          disabled={transcriptionProblem !== null}
-          loading={testingDictation}
-          onPress={() => {
-            setTestingDictation(true);
-            testDictation(provider)
-              .then((report) => Dialog.alert("Dictation test", report))
-              .finally(() => setTestingDictation(false));
-          }}
-        />
-        <SettingsActionRow
-          icon="trash"
-          label="Remove provider"
-          tone="danger"
-          onPress={() =>
-            Dialog.confirm({
-              title: `Remove ${providerLabel(provider)}?`,
-              message: "Its API key is deleted from this device.",
-              confirmText: "Remove",
-              destructive: true,
-              onConfirm: () => {
-                stopSpeech();
-                void updateSpeechSettings((current) => ({
-                  ...current,
-                  providers: current.providers.filter((entry) => entry.id !== provider.id),
-                }));
-              },
-            })
-          }
-        />
-      </SettingsSection>
-    </>
-  );
-}
-
-function roleDescription(provider: SpeechProviderConfig, problem: string | null): string {
-  return problem ?? SPEECH_PROVIDER_KINDS[provider.kind].label;
+/** What a provider row says: a missing piece for its job first, then what it is used for. */
+function providerSummary(settings: SpeechSettings, provider: SpeechProviderConfig): string {
+  const reading = provider.id === settings.activeProviderId;
+  const dictating = provider.id === settings.transcriptionProviderId;
+  const problem =
+    (reading ? speechProviderProblem(provider) : null) ??
+    (dictating ? transcriptionProviderProblem(provider) : null);
+  if (problem) return problem;
+  const roles = [reading ? "Read aloud" : null, dictating ? "Dictation" : null].filter(Boolean);
+  return `${SPEECH_PROVIDER_KINDS[provider.kind].label} · ${roles.join(", ") || "Not in use"}`;
 }
 
 export function SettingsSpeechRouteScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const settings = useSpeechSettings();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const editing =
-    settings.providers.find((provider) => provider.id === editingId) ??
-    settings.providers[0] ??
-    null;
+  const reader = settings.providers.find((entry) => entry.id === settings.activeProviderId);
+  const transcriber = settings.providers.find(
+    (entry) => entry.id === settings.transcriptionProviderId,
+  );
+  const readerProblem = reader ? speechProviderProblem(reader) : null;
+  const transcriberProblem = transcriber ? transcriptionProviderProblem(transcriber) : null;
+
+  const chooseKind = () =>
+    startAddingProvider(null, (providerId) =>
+      navigation.navigate("SettingsSpeechProvider", { providerId }),
+    );
 
   return (
     <View collapsable={false} className="flex-1 bg-sheet">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         className="flex-1"
         contentContainerClassName="gap-5 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
       >
-        <SettingsSection title="Read aloud with">
-          <SettingsChoiceRow
-            label="Off"
-            description="Hide the read aloud button"
-            selected={settings.activeProviderId === null}
-            onPress={() =>
-              void updateSpeechSettings((current) => ({ ...current, activeProviderId: null }))
-            }
+        <SettingsSection
+          title="Read aloud"
+          footer="Adds a speaker button to assistant replies. Playback continues on the lock screen."
+        >
+          <ListRow
+            icon="speaker.wave.2"
+            label="Read with"
+            description={readerProblem ?? undefined}
+            detail={reader ? providerLabel(reader) : "Off"}
+            onPress={() => navigation.navigate("SettingsSpeechRole", { role: "readAloud" })}
           />
-          {settings.providers.map((provider) => (
-            <SettingsChoiceRow
-              key={provider.id}
-              label={providerLabel(provider)}
-              description={roleDescription(provider, speechProviderProblem(provider))}
-              selected={provider.id === settings.activeProviderId}
-              separated
-              onPress={() =>
-                void updateSpeechSettings((current) => ({
-                  ...current,
-                  activeProviderId: provider.id,
-                }))
-              }
-            />
-          ))}
+          <PlaybackSpeedRow rate={settings.playbackRate} disabled={!reader} />
         </SettingsSection>
 
-        <SettingsSection
-          title="Dictate with"
-          footer="Used by the microphone in the message composer."
-        >
-          <SettingsChoiceRow
-            label="On this iPhone"
-            description="Apple speech recognition, iOS 26 or later"
-            selected={settings.transcriptionProviderId === null}
-            onPress={() =>
-              void updateSpeechSettings((current) => ({
-                ...current,
-                transcriptionProviderId: null,
-              }))
-            }
+        <SettingsSection title="Dictation" footer="Used by the microphone in the message composer.">
+          <ListRow
+            icon="text.bubble"
+            label="Transcribe with"
+            description={transcriberProblem ?? undefined}
+            detail={transcriber ? providerLabel(transcriber) : "This iPhone"}
+            onPress={() => navigation.navigate("SettingsSpeechRole", { role: "dictation" })}
           />
-          {settings.providers.map((provider) => (
-            <SettingsChoiceRow
-              key={provider.id}
-              label={providerLabel(provider)}
-              description={roleDescription(provider, transcriptionProviderProblem(provider))}
-              selected={provider.id === settings.transcriptionProviderId}
-              separated
-              onPress={() =>
-                void updateSpeechSettings((current) => ({
-                  ...current,
-                  transcriptionProviderId: provider.id,
-                }))
-              }
-            />
-          ))}
+          <ListRow
+            icon="mic"
+            label="Microphone"
+            onPress={() => navigation.navigate("SettingsMicrophone")}
+          />
         </SettingsSection>
 
         <SettingsSection
           title="Providers"
-          footer="API keys are stored in this device's keychain and sent only to the provider."
+          footer={
+            settings.providers.length === 0
+              ? "Add OpenAI, ElevenLabs, or your own server to read replies aloud with natural voices and to transcribe dictation in the cloud."
+              : "API keys stay in this iPhone's keychain and are sent only to their provider."
+          }
         >
-          {settings.providers.map((provider, index) => (
-            <SettingsChoiceRow
+          {settings.providers.map((provider) => (
+            <ListRow
               key={provider.id}
               label={providerLabel(provider)}
-              description="Tap to edit"
-              selected={provider.id === editing?.id}
-              separated={index > 0}
-              onPress={() => setEditingId(provider.id)}
+              description={providerSummary(settings, provider)}
+              onPress={() =>
+                navigation.navigate("SettingsSpeechProvider", { providerId: provider.id })
+              }
             />
           ))}
-          <SettingsActionRow
-            icon="plus"
-            label="Add provider"
-            onPress={() =>
-              Dialog.alert("Add provider", undefined, [
-                ...(Object.keys(SPEECH_PROVIDER_KINDS) as SpeechProviderKind[]).map((kind) => ({
-                  text: SPEECH_PROVIDER_KINDS[kind].label,
-                  onPress: () => addProvider(kind, setEditingId),
-                })),
-                { text: "Cancel", style: "cancel" as const },
-              ])
-            }
-          />
+          <ListActionRow icon="plus" label="Add provider" onPress={chooseKind} />
         </SettingsSection>
-
-        {/* Keyed so inputs and loaded voices reset when another provider is edited. */}
-        {editing ? <ProviderSettings key={editing.id} provider={editing} /> : null}
-
-        <SettingsSection title="Playback speed">
-          <PlaybackSpeedRow rate={settings.playbackRate} />
-        </SettingsSection>
-
-        <Text className="px-2 text-sm text-foreground-muted">
-          Custom servers need OpenAI-compatible endpoints: /audio/speech returning 16-bit WAV for
-          read aloud (Kokoro-FastAPI, openedai-speech) and /audio/transcriptions for dictation
-          (faster-whisper, Speaches). They can run on your local network or a VPN.
-        </Text>
       </ScrollView>
     </View>
   );

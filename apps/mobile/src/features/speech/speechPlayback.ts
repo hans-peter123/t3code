@@ -19,7 +19,12 @@ import {
   speechTimelineDuration,
   synthesizeSpeechParts,
 } from "@t3tools/client-runtime/speech";
-import { activeSpeechProvider, loadSpeechSettings, speechProviderProblem } from "./speechSettings";
+import {
+  activeSpeechProvider,
+  loadSpeechSettings,
+  speechProviderProblem,
+  type SpeechProviderConfig,
+} from "./speechSettings";
 
 export const SPEECH_SKIP_SECONDS = 15;
 const CACHE_DIRECTORY = "speech";
@@ -264,6 +269,8 @@ export async function speakMessage(input: {
   readonly messageId: string;
   readonly markdown: string;
   readonly title: string;
+  /** Plays with this provider instead of the one chosen for read aloud, e.g. a voice sample. */
+  readonly provider?: SpeechProviderConfig;
 }): Promise<void> {
   if (state.messageId === input.messageId) {
     if (state.buffering) return;
@@ -273,7 +280,7 @@ export async function speakMessage(input: {
   }
   stopSpeech();
   const settings = await loadSpeechSettings();
-  const provider = activeSpeechProvider(settings);
+  const provider = input.provider ?? activeSpeechProvider(settings);
   if (!provider) throw new SpeechNotConfiguredError("Add a voice provider to read messages aloud.");
   const problem = speechProviderProblem(provider);
   if (problem)
