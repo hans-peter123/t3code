@@ -12,6 +12,7 @@ export {
   PLAYBACK_RATES,
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,
+  stepPlaybackRate,
   transcriptionProvider,
   transcriptionProviderProblem,
   type SpeechProviderConfig,
