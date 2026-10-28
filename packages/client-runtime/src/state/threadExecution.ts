@@ -99,6 +99,23 @@ export function deriveLatestThreadRun(projection: ThreadStructure): ThreadRunSum
   return run === null ? null : summarizeThreadRun(projection, run);
 }
 
+/** The latest run is over and no longer the runtime's active run. */
+export function isLatestRunSettled(
+  latestRun: Pick<ThreadRunSummary, "runId" | "startedAt" | "completedAt" | "status"> | null,
+  runtime: Pick<ThreadRuntimeSummary, "status" | "activeRunId"> | null,
+): boolean {
+  if (latestRun === null) return false;
+  if (
+    latestRun.status === "preparing" ||
+    latestRun.status === "queued" ||
+    latestRun.status === "starting" ||
+    latestRun.status === "running" ||
+    latestRun.status === "waiting"
+  )
+    return false;
+  return runtime?.activeRunId !== latestRun.runId;
+}
+
 export function deriveThreadActivityRun(projection: ThreadStructure): ThreadRunSummary | null {
   const run =
     latestMatchingRun(projection, (candidate) => ACTIVITY_RUN_STATUSES.has(candidate.status)) ??

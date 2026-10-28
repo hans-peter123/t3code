@@ -1,9 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
 import { parseScopedThreadKey } from "@t3tools/client-runtime/environment";
+import { type AutoReadCursor, nextAutoRead } from "@t3tools/client-runtime/speech";
 import { useEffect, useRef } from "react";
 
 import type { ChatMessage } from "../types";
-import { type AutoReadCursor, nextAutoRead } from "./autoRead";
 import { readMessageAloud, replySpeechRequest } from "./ReadAloudButton";
 import { currentSpeechPhase } from "./speechPlayback";
 import { useSpeechSettings } from "./speechSettings";
@@ -14,6 +14,8 @@ export function useAutoReadReplies(input: {
   readonly threadKey: string;
   readonly runId: string | null;
   readonly settled: boolean;
+  readonly completed: boolean;
+  readonly live: boolean;
   readonly messages: readonly ChatMessage[];
   readonly title: string;
   /** Drafts have no server thread to summarize, so their replies are read in full. */
@@ -22,12 +24,22 @@ export function useAutoReadReplies(input: {
   const navigate = useNavigate();
   const enabled = useSpeechSettings().autoRead;
   const cursor = useRef<AutoReadCursor | null>(null);
-  const { threadKey, runId, settled, messages, title, serverThread } = input;
+  const { threadKey, runId, settled, completed, live, messages, title, serverThread } = input;
   const canSummarize = useCanSummarize(parseScopedThreadKey(threadKey)?.environmentId ?? null);
   const summarizable = serverThread && canSummarize;
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- starts audio playback when a run in the open thread finishes.
   useEffect(() => {
-    const next = nextAutoRead(cursor.current, { threadKey, runId, settled, messages });
+    const next = nextAutoRead(cursor.current, {
+      threadKey,
+      runId,
+      settled,
+      completed,
+      live,
+      now: Date.now(),
+      // Browsers keep the socket running, so nothing arrives late after the tab returns.
+      catchUpMs: 0,
+      messages,
+    });
     cursor.current = next.cursor;
     // A reply that arrives while another plays is skipped rather than cutting it off.
     if (!next.reply || !enabled) return;
@@ -42,5 +54,16 @@ export function useAutoReadReplies(input: {
       }),
       (to) => void navigate({ to }),
     );
-  }, [threadKey, runId, settled, messages, title, summarizable, enabled, navigate]);
+  }, [
+    threadKey,
+    runId,
+    settled,
+    completed,
+    live,
+    messages,
+    title,
+    summarizable,
+    enabled,
+    navigate,
+  ]);
 }

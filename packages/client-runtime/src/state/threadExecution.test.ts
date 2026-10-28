@@ -25,6 +25,7 @@ import {
   deriveRunlessWorkStartedAt,
   deriveThreadActivityRun,
   deriveThreadRuntime,
+  isLatestRunSettled,
   threadRuntimeHasInterruptibleRun,
 } from "./threadExecution.ts";
 
@@ -51,6 +52,33 @@ function run(id: string, ordinal: number, status: OrchestrationV2RunStatus) {
 }
 
 describe("thread execution presentation", () => {
+  it("uses run status as the settlement boundary", () => {
+    const runId = RunId.make("run-1");
+    expect(
+      isLatestRunSettled(
+        {
+          runId,
+          status: "completed",
+          startedAt: "2026-06-20T00:00:00.000Z",
+          completedAt: "2026-06-20T00:01:00.000Z",
+        },
+        null,
+      ),
+    ).toBe(true);
+    expect(
+      isLatestRunSettled(
+        { runId, status: "running", startedAt: null, completedAt: null },
+        { status: "running", activeRunId: runId },
+      ),
+    ).toBe(false);
+    expect(
+      isLatestRunSettled(
+        { runId, status: "queued", startedAt: null, completedAt: null },
+        { status: "running", activeRunId: RunId.make("run-active") },
+      ),
+    ).toBe(false);
+  });
+
   it("derives the current root failure without inheriting errors from children or previous runs", () => {
     const failed = { ...run("limited", 1, "failed"), rootNodeId: NodeId.make("root") };
     const item = {

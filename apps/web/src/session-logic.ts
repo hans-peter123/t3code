@@ -199,22 +199,6 @@ export function workEntryIndicatesToolNeutralStatus(entry: WorkLogEntry): boolea
   );
 }
 
-export function isLatestRunSettled(
-  latestRun: Pick<ThreadRunSummary, "runId" | "startedAt" | "completedAt" | "status"> | null,
-  runtime: Pick<ThreadRuntimeSummary, "status" | "activeRunId"> | null,
-): boolean {
-  if (latestRun === null) return false;
-  if (
-    latestRun.status === "preparing" ||
-    latestRun.status === "queued" ||
-    latestRun.status === "starting" ||
-    latestRun.status === "running" ||
-    latestRun.status === "waiting"
-  )
-    return false;
-  return runtime?.activeRunId !== latestRun.runId;
-}
-
 export function deriveActiveWorkStartedAt(
   latestRun: Pick<
     ThreadRunSummary,

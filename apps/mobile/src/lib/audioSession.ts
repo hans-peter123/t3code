@@ -56,6 +56,11 @@ export function acquireAudioSession(
   return token;
 }
 
+/** Dictation, media or speech holds the shared session right now. */
+export function audioSessionInUse(): boolean {
+  return owner !== null && !owner.released;
+}
+
 export function isAudioSessionOwner(token: AudioSessionToken): boolean {
   return owner === token && !token.released;
 }

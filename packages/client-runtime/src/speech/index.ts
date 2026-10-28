@@ -72,3 +72,4 @@ export {
   type SpeakDecision,
   type SpokenText,
 } from "./readMode.ts";
+export { nextAutoRead, type AutoReadCursor, type AutoReadMessage } from "./autoRead.ts";
