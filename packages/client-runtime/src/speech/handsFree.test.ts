@@ -37,11 +37,18 @@ const otherDone: HandsFreeEvent = {
   agentWorking: false,
 };
 const approval: HandsFreeEvent = {
-  type: "approvalRequested",
+  type: "inputRequested",
+  kind: "approval",
   environmentId: "e1",
   requestId: "r1",
   title: "Docs",
 };
+
+const unsentNotice = (text: string, threadId = "t1"): HandsFreeEffect => ({
+  type: "notify",
+  message: HANDS_FREE_COPY.abandonedSendFailed(text),
+  unsent: { environmentId: "e1", threadId, text },
+});
 
 /** Folds events from off; returns the final state and the effects of the last event. */
 function run(events: readonly HandsFreeEvent[], from: HandsFreeState = HANDS_FREE_OFF) {
@@ -148,10 +155,61 @@ describe("hands-free loop", () => {
       effects: [{ type: "stopAudio" }, { type: "playTone", id: 2 }],
     },
     {
+      name: "talk during the tone skips it and listens",
+      events: [start, { type: "talk" }],
+      phase: "listening",
+      effects: [{ type: "stopAudio" }, { type: "startRecording", id: 1 }],
+    },
+    {
+      name: "a silent microphone is told and waits instead of listening again",
+      events: [...listening, { type: "done" }, { type: "microphoneSilent", id: 1 }],
+      phase: "speaking",
+      effects: [{ type: "speak", id: 2, text: HANDS_FREE_COPY.microphoneSilent }],
+    },
+    {
+      name: "after telling the microphone is silent it waits for a press",
+      events: [
+        ...listening,
+        { type: "done" },
+        { type: "microphoneSilent", id: 1 },
+        { type: "speechEnded", id: 2 },
+      ],
+      phase: "waiting",
+      effects: [],
+    },
+    {
+      name: "a question while waiting is announced",
+      events: [working, { ...approval, kind: "question" }],
+      phase: "speaking",
+      effects: [{ type: "speak", id: 1, text: "Docs has a question" }],
+    },
+    {
       name: "talk while waiting starts listening",
       events: [working, { type: "talk" }],
       phase: "tone",
       effects: [{ type: "playTone", id: 1 }],
+    },
+    {
+      name: "switching to Full while a reply is read reads it again in full",
+      events: [...speakingReply, { type: "setReadMode", readMode: "full" }],
+      phase: "speaking",
+      effects: [
+        { type: "stopAudio" },
+        {
+          type: "speakReply",
+          id: 2,
+          environmentId: "e1",
+          threadId: "t1",
+          messageId: "m1",
+          mode: "full",
+        },
+      ],
+    },
+    {
+      name: "switching mode while listening only changes later replies",
+      events: [...listening, { type: "setReadMode", readMode: "full" }],
+      phase: "listening",
+      effects: [],
     },
     {
       name: "a failed short version falls back to the full reply",
@@ -189,15 +247,30 @@ describe("hands-free loop", () => {
       effects: [{ type: "speak", id: 2, text: HANDS_FREE_COPY.nothingHeard }],
     },
     {
-      name: "after saying nothing was heard it listens again",
+      name: "after saying nothing was heard it waits for a press",
       events: [
         ...listening,
         { type: "done" },
         { type: "transcribed", id: 1, text: "", draftId: "d1" },
         { type: "speechEnded", id: 2 },
       ],
-      phase: "tone",
-      effects: [{ type: "playTone", id: 3 }],
+      phase: "waiting",
+      effects: [],
+    },
+    {
+      name: "listening that runs too long drops the recording and says so",
+      events: [...listening, { type: "listenTimedOut", id: 1 }],
+      phase: "speaking",
+      effects: [
+        { type: "cancelRecording" },
+        { type: "speak", id: 2, text: HANDS_FREE_COPY.listenTimedOut },
+      ],
+    },
+    {
+      name: "a stale listening limit is ignored",
+      events: [...listening, { type: "done" }, { type: "listenTimedOut", id: 1 }],
+      phase: "transcribing",
+      effects: [],
     },
     {
       name: "a failed transcription says so",
@@ -320,6 +393,111 @@ describe("hands-free loop", () => {
       effects: [],
     },
     {
+      name: "a microphone only the app can bring back says to open it",
+      events: [...listening, { type: "recordingFailed", id: 1, reopen: true }],
+      phase: "speaking",
+      effects: [{ type: "speak", id: 2, text: HANDS_FREE_COPY.microphoneSilent }],
+    },
+    {
+      name: "losing the headphones while reading drops the reply and waits",
+      events: [...speakingReply, { type: "audioRouteLost" }],
+      phase: "waiting",
+      effects: [{ type: "stopAudio" }],
+    },
+    {
+      name: "losing the headphones during the failed send notice keeps the message",
+      events: [...sending, { type: "sendFailed", id: 2 }, { type: "audioRouteLost" }],
+      phase: "unsent",
+      effects: [{ type: "stopAudio" }],
+    },
+    {
+      name: "losing the headphones while listening drops the recording unsent",
+      events: [...listening, { type: "audioRouteLost" }],
+      phase: "waiting",
+      effects: [
+        { type: "cancelRecording" },
+        { type: "notify", message: HANDS_FREE_COPY.routeLostWhileListening },
+      ],
+    },
+    {
+      name: "losing the headphones while waiting keeps a finished reply until a press",
+      events: [working, { type: "audioRouteLost" }, reply("m1")],
+      phase: "waiting",
+      effects: [],
+    },
+    {
+      name: "losing the headphones while waiting keeps announcements until a press",
+      events: [working, { type: "audioRouteLost" }, otherDone, approval],
+      phase: "waiting",
+      effects: [],
+    },
+    {
+      name: "a press after losing the headphones tells what was held",
+      events: [working, { type: "audioRouteLost" }, otherDone, reply("m1"), { type: "talk" }],
+      phase: "speaking",
+      effects: [{ type: "speak", id: 1, text: "Docs is done" }],
+    },
+    {
+      name: "a press after losing the headphones mid-reply reads it again",
+      events: [...speakingReply, { type: "audioRouteLost" }, { type: "talk" }],
+      phase: "speaking",
+      effects: [
+        {
+          type: "speakReply",
+          id: 2,
+          environmentId: "e1",
+          threadId: "t1",
+          messageId: "m1",
+          mode: "short",
+        },
+      ],
+    },
+    {
+      name: "a press after losing the headphones with nothing held listens",
+      events: [working, { type: "audioRouteLost" }, { type: "talk" }],
+      phase: "tone",
+      effects: [{ type: "playTone", id: 1 }],
+    },
+    {
+      name: "losing the headphones while transcribing sends but stays quiet after",
+      events: [
+        ...listening,
+        { type: "done" },
+        { type: "audioRouteLost" },
+        { type: "transcribed", id: 1, text: "", draftId: "d1" },
+      ],
+      phase: "waiting",
+      effects: [{ type: "notify", message: HANDS_FREE_COPY.nothingHeard }],
+    },
+    {
+      name: "a queued run removed elsewhere stops the agent working",
+      events: [working, { type: "agentWorkingChanged", agentWorking: false }],
+      phase: "waiting",
+      effects: [],
+    },
+    {
+      name: "a message queued behind an approval says so",
+      events: [...sending, { type: "sent", id: 2, agentWorking: true, queuedBehind: "approval" }],
+      phase: "speaking",
+      effects: [{ type: "speak", id: 3, text: HANDS_FREE_COPY.queuedBehind("approval") }],
+    },
+    {
+      name: "a request the thread already waits on at the start is told first",
+      events: [{ ...working, request: { requestId: "q1", kind: "approval", title: "Fix login" } }],
+      phase: "speaking",
+      effects: [{ type: "speak", id: 1, text: "Fix login needs approval" }],
+    },
+    {
+      name: "a request told at the start is not told again",
+      events: [
+        { ...working, request: { requestId: "r1", kind: "approval", title: "Docs" } },
+        { type: "speechEnded", id: 1 },
+        approval,
+      ],
+      phase: "waiting",
+      effects: [],
+    },
+    {
       name: "a notice that can't be spoken is shown instead",
       events: [...listening, { type: "recordingFailed", id: 1 }, { type: "speechFailed", id: 2 }],
       phase: "waiting",
@@ -353,7 +531,18 @@ describe("hands-free loop", () => {
       name: "a send abandoned by stop that fails is shown with its text",
       events: [...sending, { type: "stop" }, { type: "sendFailed", id: 2 }],
       phase: "off",
-      effects: [{ type: "notify", message: HANDS_FREE_COPY.abandonedSendFailed("Add a test") }],
+      effects: [unsentNotice("Add a test")],
+    },
+    {
+      name: "a send abandoned by stop keeps its thread when another conversation starts",
+      events: [
+        ...sending,
+        { type: "stop" },
+        { ...start, threadId: "t2" },
+        { type: "sendFailed", id: 2 },
+      ],
+      phase: "tone",
+      effects: [unsentNotice("Add a test", "t1")],
     },
     {
       name: "discard drops the recording and waits",
@@ -405,15 +594,12 @@ describe("hands-free loop", () => {
     {
       name: "a failed send is held",
       events: unsent,
-      effects: [{ type: "notify", message: HANDS_FREE_COPY.abandonedSendFailed("Add a test") }],
+      effects: [unsentNotice("Add a test")],
     },
     {
       name: "the failed send notice plays",
       events: [...sending, { type: "sendFailed", id: 2 }],
-      effects: [
-        { type: "stopAudio" },
-        { type: "notify", message: HANDS_FREE_COPY.abandonedSendFailed("Add a test") },
-      ],
+      effects: [{ type: "stopAudio" }, unsentNotice("Add a test")],
     },
   ])("stop while $name cleans up and turns off", ({ events, effects }) => {
     const result = run([...events, { type: "stop" }]);
@@ -447,6 +633,9 @@ describe("hands-free races", () => {
     const held = run([working, { type: "talk" }, { type: "toneEnded", id: 1 }, reply("m1")]);
     expect(held.effects).toEqual([]);
     expect(held.state.phase.kind).toBe("listening");
+    expect(run([{ type: "setReadMode", readMode: "full" }], held.state).state.pending).toEqual([
+      { kind: "reply", messageId: "m1", mode: "full" },
+    ]);
 
     const after = run(
       [
@@ -576,6 +765,19 @@ describe("hands-free races", () => {
         mode: "short",
       },
     ]);
+  });
+
+  it("follows the thread's working state, except while a send reads it itself", () => {
+    const idle = run([working, { type: "agentWorkingChanged", agentWorking: false }]);
+    expect(idle.state.agentWorking).toBe(false);
+    const whileSending = run([...sending, { type: "agentWorkingChanged", agentWorking: true }]);
+    expect(whileSending.state.agentWorking).toBe(false);
+  });
+
+  it("keeps a reply cut off by a lost route for the next press", () => {
+    const held = run([...speakingReply, { type: "audioRouteLost" }]);
+    expect(held.state.held).toBe(true);
+    expect(held.state.pending).toEqual([{ kind: "reply", messageId: "m1", mode: "short" }]);
   });
 
   it("reads a reply only once when its finish event repeats", () => {

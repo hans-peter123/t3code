@@ -10,6 +10,7 @@ import { fullscreenVideoClosed, fullscreenVideoOpened } from "../lib/videoAudioS
 import { mediaVideoPreviewUri, type VideoPreviewSource } from "../lib/videoPreviewSource";
 import { refreshAssetUrl } from "../state/assets";
 import { usePreparedConnection } from "../state/session";
+import { explainAudioSessionRefusal } from "../lib/audioSessionRefusal";
 import {
   acquireAudioSession,
   activateAudioSession,
@@ -108,7 +109,10 @@ function NativeVideoPreview(props: {
       if (!current || !(await activateAudioSession(current, true)) || controller.signal.aborted) {
         release();
         file?.dispose();
-        if (!controller.signal.aborted) onRequestClose();
+        if (!controller.signal.aborted) {
+          explainAudioSessionRefusal("play videos");
+          onRequestClose();
+        }
         return;
       }
       ready = true;

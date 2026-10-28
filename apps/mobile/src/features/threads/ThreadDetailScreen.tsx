@@ -203,6 +203,7 @@ import { ComposerQueuedEditBanner } from "./ComposerQueuedEdit";
 import { useThreadQueuedCount } from "./ThreadQueueControl";
 import { ThreadGuestShareBar } from "./ThreadGuestShareBar";
 import { ThreadSideChatsRow } from "./ThreadSideChatsRow";
+import { ConversationBar } from "../handsfree/ConversationBar";
 import { ReadNewRepliesBar } from "../speech/ReadNewRepliesBar";
 import type { ThreadContentPresentation } from "./threadContentPresentation";
 import { resolveThreadFeedSubmissionAnchor } from "./thread-feed-live-follow";
@@ -1631,6 +1632,7 @@ function ThreadDetailBody(
                       threadRef={props.selectedThreadDetailRef}
                       canOperateThread={props.canOperateThread}
                     />
+                    <ConversationBar threadRef={props.selectedThreadDetailRef} />
                     <ReadNewRepliesBar threadRef={props.selectedThreadDetailRef} />
                     {props.draftMode ? null : (
                       <ThreadSideChatsRow

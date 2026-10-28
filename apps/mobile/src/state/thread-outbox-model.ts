@@ -103,7 +103,7 @@ export interface ThreadSettingsSnapshot {
 }
 
 export function resolveQueuedThreadSettings(
-  message: QueuedThreadMessage,
+  message: Pick<QueuedThreadMessage, "modelSelection" | "runtimeMode" | "interactionMode">,
   thread: ThreadSettingsSnapshot,
   providers: ReadonlyArray<Pick<ServerProvider, "instanceId" | "showInteractionModeToggle">> = [],
 ): ThreadSettingsSnapshot {

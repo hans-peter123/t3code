@@ -5,6 +5,7 @@ import { AppState, View } from "react-native";
 import { AppText as Text } from "../../components/ui/AppText";
 import { useFullscreenVideoOpen, useMediaAudioSessionHold } from "../../lib/videoAudioSession";
 import { createAudioPlaybackSession } from "../../lib/audioSession";
+import { explainAudioSessionRefusal } from "../../lib/audioSessionRefusal";
 import { usePlaybackAudioPlayer } from "../voice-input/usePlaybackAudioPlayer";
 
 function timestamp(seconds: number) {
@@ -69,6 +70,9 @@ export function AudioFilePreview(props: { uri: string; onRetry: () => void }) {
                     ? () => player.seekTo(0)
                     : undefined,
                 )
+                .then(() => {
+                  if (!playback.requested) explainAudioSessionRefusal("play audio");
+                })
                 .catch(() => setSeekError(true));
             }
           }}
