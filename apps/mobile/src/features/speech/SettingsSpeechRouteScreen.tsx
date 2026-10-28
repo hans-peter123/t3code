@@ -5,17 +5,22 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText as Text } from "../../components/ui/AppText";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { ListActionRow } from "../../components/ui/ListActionRow";
+import { ListChoiceRow } from "../../components/ui/ListChoiceRow";
 import { ListRow } from "../../components/ui/ListRow";
 import { ListRowLayout } from "../../components/ui/ListRowLayout";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { SettingsSection } from "../settings/components/SettingsSection";
+import { dictationLocaleName } from "./dictationLanguage";
+import { useDictationLocaleChoices } from "./SettingsSpeechPickers";
 import {
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,
   stepPlaybackRate,
   type SpeechProviderConfig,
+  type SpeechReadMode,
   type SpeechSettings,
   transcriptionProviderProblem,
+  updateSpeechSettings,
   useSpeechSettings,
 } from "./speechSettings";
 import { providerLabel, setPlaybackRate, startAddingProvider } from "./speechSettingsEdits";
@@ -116,10 +121,15 @@ function providerSummary(settings: SpeechSettings, provider: SpeechProviderConfi
   return `${SPEECH_PROVIDER_KINDS[provider.kind].label} · ${roles.join(", ") || "Not in use"}`;
 }
 
+function setReadMode(readMode: SpeechReadMode) {
+  void updateSpeechSettings((current) => ({ ...current, readMode }));
+}
+
 export function SettingsSpeechRouteScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const settings = useSpeechSettings();
+  const localeChoices = useDictationLocaleChoices();
   const reader = settings.providers.find((entry) => entry.id === settings.activeProviderId);
   const transcriber = settings.providers.find(
     (entry) => entry.id === settings.transcriptionProviderId,
@@ -155,6 +165,23 @@ export function SettingsSpeechRouteScreen() {
           <PlaybackSpeedRow rate={settings.playbackRate} disabled={!reader} />
         </SettingsSection>
 
+        <SettingsSection
+          title="Read"
+          footer="The short version is written from the whole thread, so it covers what happened and what needs you."
+        >
+          <ListChoiceRow
+            label="Short version"
+            selected={settings.readMode === "short"}
+            onPress={() => setReadMode("short")}
+          />
+          <ListChoiceRow
+            label="Full message"
+            selected={settings.readMode === "full"}
+            separated
+            onPress={() => setReadMode("full")}
+          />
+        </SettingsSection>
+
         <SettingsSection title="Dictation" footer="Used by the microphone in the message composer.">
           <ListRow
             icon="text.bubble"
@@ -162,6 +189,16 @@ export function SettingsSpeechRouteScreen() {
             description={transcriberProblem ?? undefined}
             detail={transcriber ? providerLabel(transcriber) : "This iPhone"}
             onPress={() => navigation.navigate("SettingsSpeechRole", { role: "dictation" })}
+          />
+          <ListRow
+            icon="globe"
+            label="Language"
+            detail={
+              settings.dictationLanguage
+                ? dictationLocaleName(localeChoices, settings.dictationLanguage)
+                : "Automatic"
+            }
+            onPress={() => navigation.navigate("SettingsDictationLanguage")}
           />
           <ListRow
             icon="mic"

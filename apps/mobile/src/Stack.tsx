@@ -119,6 +119,7 @@ import { SettingsVoiceRouteScreen } from "./features/settings/SettingsVoiceRoute
 import { SettingsVoiceModelsRouteScreen } from "./features/settings/SettingsVoiceModelsRouteScreen";
 import { SettingsHandsFreeProbeRouteScreen } from "./features/speech/SettingsHandsFreeProbeRouteScreen";
 import {
+  SettingsDictationLanguageRouteScreen,
   SettingsSpeechRoleRouteScreen,
   SettingsSpeechVoiceRouteScreen,
 } from "./features/speech/SettingsSpeechPickers";
@@ -293,6 +294,11 @@ const SETTINGS_SCREENS = {
     screen: SettingsSpeechRouteScreen,
     linking: "settings/speech",
     options: settingsPage("Speech"),
+  }),
+  SettingsDictationLanguage: createNativeStackScreen({
+    screen: SettingsDictationLanguageRouteScreen,
+    linking: "settings/voice/dictation-language",
+    options: { ...SETTINGS_PAGE_OPTIONS, title: "Dictation language" },
   }),
   SettingsSpeechRole: createNativeStackScreen({
     screen: SettingsSpeechRoleRouteScreen,

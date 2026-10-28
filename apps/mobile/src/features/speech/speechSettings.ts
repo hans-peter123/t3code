@@ -17,6 +17,7 @@ export {
   transcriptionProviderProblem,
   type SpeechProviderConfig,
   type SpeechProviderKind,
+  type SpeechReadMode,
   type SpeechSettings,
 } from "@t3tools/client-runtime/speech";
 

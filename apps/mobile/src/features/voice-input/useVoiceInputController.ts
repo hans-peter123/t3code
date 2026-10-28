@@ -6,6 +6,7 @@ import {
 } from "@t3tools/client-runtime/voice-input";
 
 import type { ComposerEditorSelection } from "../../components/ComposerEditor";
+import type { DictationContext } from "../speech/dictationLanguage";
 import { useGlobalVoiceInput } from "./VoiceInputProvider";
 import { createVoiceInputTarget } from "./voiceInputSession";
 
@@ -18,6 +19,7 @@ export function useVoiceInputController(input: {
   readonly subscribeToDraftChanges: (onChange: () => void) => () => void;
   readonly selection: ComposerEditorSelection;
   readonly disabled?: boolean;
+  readonly dictation?: DictationContext;
   readonly onChangeDraftMessage: (value: string) => void;
   readonly onChangeSelection: (selection: ComposerEditorSelection) => void;
 }) {
@@ -61,6 +63,7 @@ export function useVoiceInputController(input: {
         captured.subscribeToDraftChanges,
       ),
       label: captured.label,
+      ...(captured.dictation ? { dictation: captured.dictation } : {}),
     });
   }, [session]);
   const state = global.ownerKey === input.ownerKey ? global.state : IDLE_STATE;

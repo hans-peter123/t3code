@@ -6,6 +6,12 @@ import {
   type VoiceTranscriber,
 } from "@t3tools/client-runtime/voice-input";
 
+import { getLocalVoiceTranscriber } from "../../native/voiceTranscription";
+import {
+  type DictationContext,
+  onDeviceDictationLocales,
+  providerDictationLanguage,
+} from "./dictationLanguage";
 import {
   currentSpeechSettings,
   loadSpeechSettings,
@@ -35,20 +41,22 @@ export function transcribeRecording(
   provider: SpeechProviderConfig,
   uri: string,
   signal: AbortSignal,
+  language: string | null = null,
 ): Promise<string> {
   const part = recordingPart(uri);
-  return transcribeAudio(provider, part.file, part.name, signal);
+  return transcribeAudio(provider, part.file, part.name, signal, language);
 }
 
 function remoteTranscriber(provider: SpeechProviderConfig): VoiceTranscriber {
   return {
     prepare: async ({ signal }) => {
       throwIfVoiceTranscriptionAborted(signal);
+      const language = providerDictationLanguage();
       return {
-        locale: Intl.DateTimeFormat().resolvedOptions().locale,
+        locale: language ?? Intl.DateTimeFormat().resolvedOptions().locale,
         transcribe: async (uri, options) => {
           try {
-            return await transcribeRecording(provider, uri, options.signal);
+            return await transcribeRecording(provider, uri, options.signal, language);
           } catch (error) {
             throwIfVoiceTranscriptionAborted(options.signal);
             throw new VoiceTranscriptionError(
@@ -68,10 +76,34 @@ function configuredProvider(): SpeechProviderConfig | null {
   return provider && transcriptionProviderProblem(provider) === null ? provider : null;
 }
 
-/** The dictation provider chosen in settings, or Apple's on-device recognition. */
-export function getVoiceTranscriber(fallback: VoiceTranscriber | null): VoiceTranscriber | null {
+/**
+ * The dictation provider chosen in settings, then the environment upstream's Voice settings route
+ * dictation to, then Apple's on-device recognition listening for the chosen or thread language.
+ */
+export function getVoiceTranscriber(
+  localAvailable: boolean,
+  context: DictationContext | null = null,
+  environment?: { readonly transcriber: VoiceTranscriber | null } | null,
+): VoiceTranscriber | null {
   const provider = configuredProvider();
-  return provider ? remoteTranscriber(provider) : fallback;
+  if (provider) return remoteTranscriber(provider);
+  if (environment) return environment.transcriber;
+  return localAvailable ? onDeviceTranscriber(context) : null;
+}
+
+function onDeviceTranscriber(context: DictationContext | null): VoiceTranscriber {
+  return {
+    prepare: async (options) => {
+      const local = await getLocalVoiceTranscriber(() => onDeviceDictationLocales(context));
+      if (!local) {
+        throw new VoiceTranscriptionError({
+          code: "unavailable",
+          message: "Voice transcription is not available on this device.",
+        });
+      }
+      return local.prepare(options);
+    },
+  };
 }
 
 /** Re-renders when the dictation provider changes, so the microphone appears without a restart. */

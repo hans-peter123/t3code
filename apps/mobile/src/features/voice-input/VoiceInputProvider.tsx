@@ -65,11 +65,14 @@ export const localVoiceTranscriberAtom = makePermissionStatusAtom<
   read: () => getLocalVoiceTranscriber().catch(() => null),
 }).pipe(Atom.keepAlive);
 
-const voiceInputAvailableAtom = Atom.make((get) => {
-  const route = get(voiceRouteAtom);
-  if (route) return route.transcriber !== null;
+export const localVoiceInputAvailableAtom = Atom.make((get) => {
   const transcriber = get(localVoiceTranscriberAtom);
   return transcriber !== null && transcriber !== "checking";
+});
+
+const voiceInputAvailableAtom = Atom.make((get) => {
+  const route = get(voiceRouteAtom);
+  return route ? route.transcriber !== null : get(localVoiceInputAvailableAtom);
 });
 
 /**
@@ -121,12 +124,12 @@ const voiceInputAtom = Atom.make((get) => {
   });
   const session: VoiceInputSession = new VoiceInputSession({
     recorder,
-    getTranscriber: () => {
-      const route = registry.get(voiceRouteAtom);
-      const local = registry.get(localVoiceTranscriberAtom);
-      // A dictation provider chosen in the fork's Voice settings wins over both.
-      return getVoiceTranscriber(route ? route.transcriber : local === "checking" ? null : local);
-    },
+    getTranscriber: (target) =>
+      getVoiceTranscriber(
+        registry.get(localVoiceInputAvailableAtom),
+        target?.dictation ?? null,
+        registry.get(voiceRouteAtom),
+      ),
     requestPermission: permission.requestPermission,
     configureRecording: async () => {
       const token = acquireAudioSession("recording");

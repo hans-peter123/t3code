@@ -44,11 +44,23 @@ function getNativeErrorCode(error: unknown): string | undefined {
   return typeof error.code === "string" ? error.code : undefined;
 }
 
-export async function getLocalVoiceTranscriber(): Promise<VoiceTranscriber | null> {
-  const locales = getPreferredLocales();
+/**
+ * `resolveLocales` lists the locales to listen for ahead of the user's Language & Region list,
+ * such as the thread's language; availability does not depend on them.
+ */
+export async function getLocalVoiceTranscriber(
+  resolveLocales: () => Promise<readonly string[]> = async () => [],
+): Promise<VoiceTranscriber | null> {
+  const preferred = getPreferredLocales();
   // Availability is a device and OS check; which languages have a model only `prepare` knows.
-  if (!AppleTranscription.isAvailable(locales[0]!)) return null;
-  return { prepare: (options) => prepareVoiceTranscription(locales, options) };
+  if (!AppleTranscription.isAvailable(preferred[0]!)) return null;
+  return {
+    prepare: async (options) => {
+      throwIfVoiceTranscriptionAborted(options.signal);
+      const chosen = await resolveLocales().catch(() => []);
+      return prepareVoiceTranscription([...new Set([...chosen, ...preferred])], options);
+    },
+  };
 }
 
 async function prepareVoiceTranscription(

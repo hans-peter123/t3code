@@ -118,6 +118,7 @@ import {
   ComposerDictationToolbar,
 } from "../voice-input/ComposerDictationControl";
 import { useVoiceInputController } from "../voice-input/useVoiceInputController";
+import type { DictationContext } from "../speech/dictationLanguage";
 import { resolveVoiceComposerPresentation } from "../voice-input/voiceInputPresentation";
 import type { ExistingThreadSettingsRouteParams } from "./ThreadSettingsSheet";
 import {
@@ -217,6 +218,8 @@ export interface ThreadComposerProps {
   readonly connectionState: RemoteClientConnectionState;
   readonly environmentLabel: string | null;
   readonly selectedThread: EnvironmentThreadShell;
+  /** The thread's messages for dictation, whose language on-device dictation can follow. */
+  readonly dictation?: DictationContext;
   readonly reportedModelSelection?: ModelSelection | null;
   readonly hasCompactableConversation: boolean;
   /** Arms a fresh session for the next message; absent where `/clear` is unavailable. */
@@ -583,6 +586,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     selection: composerMenu.selection,
     onChangeDraftMessage: (text) => setComposerDraftText(composerDraftKey, text),
     onChangeSelection: composerMenu.onSelectionChange,
+    ...(props.dictation ? { dictation: props.dictation } : {}),
   });
   const isSubmissionLocked =
     props.interactionLocked === true || queuedEdit?.saving === true || voiceInput.blocksSubmission;
