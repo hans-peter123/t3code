@@ -8,6 +8,7 @@ import { ListActionRow } from "../../components/ui/ListActionRow";
 import { ListChoiceRow } from "../../components/ui/ListChoiceRow";
 import { ListRow } from "../../components/ui/ListRow";
 import { ListRowLayout } from "../../components/ui/ListRowLayout";
+import { ListToggleRow } from "../../components/ui/ListToggleRow";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { SettingsSection } from "../settings/components/SettingsSection";
 import { dictationLocaleName } from "./dictationLanguage";
@@ -23,6 +24,7 @@ import {
   updateSpeechSettings,
   useSpeechSettings,
 } from "./speechSettings";
+import { setReadNewReplies } from "./readNewReplies";
 import { providerLabel, setPlaybackRate, startAddingProvider } from "./speechSettingsEdits";
 
 function RateStepButton(props: {
@@ -163,6 +165,13 @@ export function SettingsSpeechRouteScreen() {
             onPress={() => navigation.navigate("SettingsSpeechRole", { role: "readAloud" })}
           />
           <PlaybackSpeedRow rate={settings.playbackRate} disabled={!reader} />
+          <ListToggleRow
+            label="Read new replies"
+            description="Reads each finished reply in the open thread while the app is open."
+            disabled={!reader}
+            value={settings.autoRead}
+            onValueChange={setReadNewReplies}
+          />
         </SettingsSection>
 
         <SettingsSection

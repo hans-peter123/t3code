@@ -699,6 +699,10 @@ function discardSession(current: Session) {
   } catch {}
 }
 
+export function currentSpeechPhase(): SpeechPhase {
+  return state.phase;
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);

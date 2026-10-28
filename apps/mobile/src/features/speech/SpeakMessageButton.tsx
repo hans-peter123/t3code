@@ -93,7 +93,7 @@ function TextButton(props: { readonly label: string; readonly onPress: () => voi
  * What reading a reply plays. Replies of a server thread can be read as its spoken summary;
  * drafts, and threads this connection may not summarize, always play in full.
  */
-function replySpeechRequest(input: {
+export function replySpeechRequest(input: {
   readonly messageId: MessageId;
   readonly markdown: string;
   readonly title: string;
