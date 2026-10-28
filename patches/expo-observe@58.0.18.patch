@@ -1,0 +1,15 @@
+diff --git a/ios/ObserveModule.swift b/ios/ObserveModule.swift
+index ec78eea..9e7c468 100644
+--- a/ios/ObserveModule.swift
++++ b/ios/ObserveModule.swift
+@@ -62,7 +62,9 @@ public final class ObserveModule: Module {
+ 
+       // Broadcast the integrations config so integration libraries (e.g. expo-image) can activate.
+       self.lastIntegrations = config.integrations ?? [:]
+-      self.emit(event: "configure", payload: ["integrations": self.lastIntegrations])
++      // Xcode 26's Swift 6 checker rejects sending this non-Sendable payload; Xcode 27 accepts it.
++      nonisolated(unsafe) let payload: [String: Any] = ["integrations": self.lastIntegrations]
++      self.emit(event: "configure", payload: payload)
+     }
+ 
+     Function("getIntegrations") {
