@@ -715,7 +715,17 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+/** The message's playback right now, for handlers that should not re-render on time ticks. */
+export function speechPlaybackOf(messageId: string): SpeechPlaybackState {
+  return state.messageId === messageId ? state : IDLE;
+}
+
 /** Re-renders only for the message being read, so other rows stay still while audio plays. */
 export function useSpeechPlayback(messageId: string): SpeechPlaybackState {
-  return useSyncExternalStore(subscribe, () => (state.messageId === messageId ? state : IDLE));
+  return useSyncExternalStore(subscribe, () => speechPlaybackOf(messageId));
+}
+
+/** Whether the message is loaded in the player; unlike `useSpeechPlayback`, ignores time ticks. */
+export function useSpeechLoaded(messageId: string): boolean {
+  return useSyncExternalStore(subscribe, () => speechPlaybackOf(messageId).phase !== "idle");
 }

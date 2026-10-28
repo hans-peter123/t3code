@@ -31,6 +31,8 @@ import { useEnrichedLinkVariants } from "./useEnrichedLinkVariants";
 import { useRetryingImageSource } from "./useRetryingImageSource";
 import * as Dialog from "../components/ui/Dialog";
 import { copyTextWithHaptic } from "../lib/copyTextWithHaptic";
+import { useDoubleTapToRead } from "../features/speech/ReadAloudOnDoubleTap";
+import { hasBlockquote } from "../features/speech/doubleTap";
 import type { HighlightScheme } from "../lib/highlights";
 import {
   ENRICHED_INLINE_FILE_LINK_REGEX,
@@ -220,6 +222,11 @@ function codeBlockElement(
 export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
   const { renderImage, resolveImageSource, fileEmbedLabel } = props;
   const { themeAppearance, mathRenderingEnabled } = useAppearancePreferences();
+  const doubleTapToRead = useDoubleTapToRead();
+  // The fork's quote and admonition text views ignore the `selectable` toggle, so a double tap
+  // there would read while iOS keeps the selected word. Without a hit test, the whole segment
+  // (usually the whole reply) keeps word selection instead.
+  const doubleTap = doubleTapToRead && !hasBlockquote(props.markdown) ? doubleTapToRead : null;
   const { markdown, fileHrefs } = useMemo(() => {
     if (!fileEmbedLabel) {
       return {
@@ -267,6 +274,7 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
   } | null>(null);
   const { fileContextMenu, onFileContextMenuAction } = props;
   const onLinkPress = (url: string) => {
+    doubleTap?.onInnerPress();
     const model = enrichedModelReference(url, props.models);
     if (model) {
       Dialog.alert(model.label, enrichedModelDetails(model));
@@ -413,13 +421,16 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
           resolveImageSource={resolveNativeImageSource}
           onImagePress={
             props.onImagePress || props.onLinkPress
-              ? ({ url }) => (props.onImagePress ?? props.onLinkPress)?.(url)
+              ? ({ url }) => {
+                  doubleTap?.onInnerPress();
+                  (props.onImagePress ?? props.onLinkPress)?.(url);
+                }
               : undefined
           }
           linkRecognition={linkRecognition}
           containerStyle={{ flexShrink: 1, minWidth: 0 }}
           flavor="github"
-          selectable
+          selectable={doubleTap?.selectable ?? true}
           selectionClipboard={selectionClipboard}
           selectionColor={props.textStyle.selectionColor}
           selectionHandleColor={props.textStyle.selectionHandleColor}
@@ -432,6 +443,7 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
           enableTaskListItemToggle={props.onTaskListItemPress !== undefined}
           onTaskListItemPress={props.onTaskListItemPress}
           enableCodeBlockWrapToggle
+          onCopyPress={doubleTap?.onInnerPress}
           spoilerOverlay="solid"
           onLinkPress={
             props.onLinkPress || props.onImagePress ? ({ url }) => onLinkPress(url) : undefined
@@ -439,6 +451,9 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
           onLinkLongPress={onLinkLongPress}
           linkContextMenuItems={linkContextMenuItems}
           linkPillContent={linkPillContent}
+          onTouchStart={doubleTap?.onTouchStart}
+          onTouchEnd={doubleTap?.onTouchEnd}
+          onTouchCancel={doubleTap?.onTouchCancel}
         />
       </View>
     );

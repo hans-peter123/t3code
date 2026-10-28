@@ -149,6 +149,7 @@ import { FONT_FAMILIES } from "../../lib/fontFamilies";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { copyTextWithHaptic } from "../../lib/copyTextWithHaptic";
 import { SpeakMessageButton } from "../speech/SpeakMessageButton";
+import { ReadAloudOnDoubleTap } from "../speech/ReadAloudOnDoubleTap";
 import { downloadAndShareAttachment } from "../../lib/attachmentDownload";
 import { splitMarkdownDetails } from "../../lib/markdownDetails";
 import { hasWideMarkdownBlock } from "../../lib/wideMarkdownBlocks";
@@ -1664,6 +1665,7 @@ function renderFeedEntry(
     readonly threadTitle: string;
     readonly workflowOpening: WorkflowOpening | null;
     readonly userMessageGrouping: GroupedThreadFeedRow["userMessageGrouping"];
+    readonly listScrolledAt: RefObject<number>;
   },
 ) {
   const entry = info.item;
@@ -2238,6 +2240,19 @@ function renderFeedEntry(
     }
 
     const enterAnimated = isFreshTimestamp(message.createdAt);
+    const markdownContent = (
+      <MarkdownImageAvailableWidthContext value={props.markdownContentWidth}>
+        <AssistantMarkdownContent
+          markdown={renderedText}
+          environmentId={props.environmentId}
+          markdownStyles={styles}
+          linkHandlers={props.markdownLinkHandlers}
+          onUseArtifactTemplate={props.onUseArtifactTemplate}
+          renderImage={props.renderMarkdownImage}
+          skills={props.skills}
+        />
+      </MarkdownImageAvailableWidthContext>
+    );
     return (
       <Animated.View
         className={cn(
@@ -2249,17 +2264,20 @@ function renderFeedEntry(
         {...(enterAnimated ? { entering: FadeIn.duration(220) } : {})}
       >
         {renderedText.trim().length > 0 ? (
-          <MarkdownImageAvailableWidthContext value={props.markdownContentWidth}>
-            <AssistantMarkdownContent
+          Platform.OS === "ios" ? (
+            <ReadAloudOnDoubleTap
+              enabled={showAssistantMeta}
+              messageId={message.id}
               markdown={renderedText}
-              environmentId={props.environmentId}
-              markdownStyles={styles}
-              linkHandlers={props.markdownLinkHandlers}
-              onUseArtifactTemplate={props.onUseArtifactTemplate}
-              renderImage={props.renderMarkdownImage}
-              skills={props.skills}
-            />
-          </MarkdownImageAvailableWidthContext>
+              title={props.threadTitle}
+              threadRef={props.detailRef}
+              listScrolledAt={props.listScrolledAt}
+            >
+              {markdownContent}
+            </ReadAloudOnDoubleTap>
+          ) : (
+            markdownContent
+          )
         ) : null}
         <MessageAttachmentList
           attachments={attachments}
@@ -2734,6 +2752,9 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const disclosureSettleFrameRef = useRef<number | null>(null);
   const disclosureSettleSecondFrameRef = useRef<number | null>(null);
   const reduceMotion = useReduceMotionEnabled();
+  // Only user motion, drag through momentum, should swallow double taps; streaming scrolls do not.
+  const userScrollSessionRef = useRef(false);
+  const listScrolledAtRef = useRef(0);
   const [interactionState, setInteractionState] = useState<{
     readonly copiedRowId: string | null;
     readonly expandedWorkGroups: Record<string, boolean>;
@@ -3241,6 +3262,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     if (state) onIsAtEndChange?.(state.isAtEnd);
   };
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (userScrollSessionRef.current) listScrolledAtRef.current = Date.now();
     reportHeaderMaterialVisibility(
       event.nativeEvent.contentOffset.y + (usesNativeAutomaticInsets ? barInset : 0) > 6,
     );
@@ -3261,6 +3283,19 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
       for (const stop of stops) stop();
     };
   }, [listRef, handleMetricsChange]);
+  const handleScrollBeginDrag = () => {
+    userScrollSessionRef.current = true;
+    listScrolledAtRef.current = Date.now();
+  };
+  const handleScrollEndDrag = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    listScrolledAtRef.current = Date.now();
+    // A release without velocity starts no momentum, so the user's motion ends here.
+    if (Math.abs(event.nativeEvent.velocity?.y ?? 0) < 0.01) userScrollSessionRef.current = false;
+  };
+  const handleMomentumScrollEnd = () => {
+    listScrolledAtRef.current = Date.now();
+    userScrollSessionRef.current = false;
+  };
   const feedThreadKey = scopedThreadKey(props.environmentId, props.threadId);
   const [workGroupScrollPositions] = useState(
     () => new Map<string, ThreadWorkGroupScrollPosition>(),
@@ -3662,6 +3697,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             skills: props.skills,
             workspaceRoot: props.workspaceRoot,
             workflowOpening,
+            listScrolledAt: listScrolledAtRef,
           })}
           {props.worktreeSetup && info.index === setupAnchorIndex ? (
             <WorktreeSetupCard key={props.threadId} {...props.worktreeSetup} />
@@ -3755,6 +3791,9 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             onLayout={handleMetricsChange}
             onItemSizeChanged={handleItemSizeChanged}
             onScroll={handleScroll}
+            onScrollBeginDrag={handleScrollBeginDrag}
+            onScrollEndDrag={handleScrollEndDrag}
+            onMomentumScrollEnd={handleMomentumScrollEnd}
             scrollEventThrottle={16}
             ListHeaderComponent={
               <>
