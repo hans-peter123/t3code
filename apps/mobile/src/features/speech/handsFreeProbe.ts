@@ -18,8 +18,9 @@ import {
 } from "expo-audio";
 import { AppState } from "react-native";
 
+import { VoiceCapture } from "../../native/voiceCapture";
 import { getVoiceTranscriber } from "./speechTranscription";
-import { loadSpeechSettings } from "./speechSettings";
+import { currentSpeechSettings, loadSpeechSettings, transcriptionProvider } from "./speechSettings";
 import { stopSpeech } from "./speechPlayback";
 
 /**
@@ -28,6 +29,8 @@ import { stopSpeech } from "./speechPlayback";
  * alive while the agent works. Every step is logged so a tester can report what happened.
  */
 export type ProbePhase = "off" | "speaking" | "listening" | "transcribing" | "waiting";
+/** "recorder": a new recording per round. "continuous": one microphone input started up front. */
+export type ProbeMode = "recorder" | "continuous";
 
 const WAIT_SECONDS = 30;
 const RECORDING_OPTIONS = {
@@ -37,6 +40,7 @@ const RECORDING_OPTIONS = {
   sampleRate: RecordingPresets.HIGH_QUALITY.sampleRate,
   numberOfChannels: RecordingPresets.HIGH_QUALITY.numberOfChannels,
   bitRate: RecordingPresets.HIGH_QUALITY.bitRate,
+  isMeteringEnabled: true,
 };
 
 function tone(): Uint8Array {
@@ -70,6 +74,9 @@ export class HandsFreeProbe {
   private keepAlivePlaying = false;
   /** Set while the probe itself restarts the silent loop, so that change is not a press. */
   private resuming = false;
+  /** Status changes before the silent loop first plays are loading noise, not presses. */
+  private armed = false;
+  private mode: ProbeMode = "recorder";
   private appStateSubscription: { remove(): void } | null = null;
 
   constructor(
@@ -83,8 +90,11 @@ export class HandsFreeProbe {
     this.log(`phase → ${phase} (app ${AppState.currentState})`);
   }
 
-  async start() {
+  async start(mode: ProbeMode) {
     if (this.phase !== "off") return;
+    this.mode = mode;
+    this.armed = false;
+    this.log(`mode: ${mode}`);
     this.controller = new AbortController();
     stopSpeech();
     const permission = await requestRecordingPermissionsAsync();
@@ -100,6 +110,23 @@ export class HandsFreeProbe {
     });
     await setIsAudioActiveAsync(true);
     this.log("audio session: playAndRecord, background, active");
+    const provider = transcriptionProvider(currentSpeechSettings());
+    this.log(`transcriber: ${provider ? provider.name || provider.kind : "on-device (Apple)"}`);
+    if (mode === "continuous") {
+      if (!VoiceCapture) {
+        this.log("continuous capture module missing in this build");
+        return;
+      }
+      try {
+        await VoiceCapture.start();
+        this.log(`continuous microphone started (app ${AppState.currentState})`);
+      } catch (error) {
+        this.log(
+          `continuous microphone failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return;
+      }
+    }
 
     this.appStateSubscription = AppState.addEventListener("change", (state) =>
       this.log(`app state → ${state}`),
@@ -110,6 +137,11 @@ export class HandsFreeProbe {
     keepAlive.loop = true;
     keepAlive.volume = 0;
     keepAlive.addListener("playbackStatusUpdate", (status) => {
+      if (!this.armed) {
+        if (status.playing) this.armed = true;
+        this.keepAlivePlaying = status.playing;
+        return;
+      }
       if (status.playing === this.keepAlivePlaying) return;
       this.keepAlivePlaying = status.playing;
       if (status.playing && this.resuming) {
@@ -163,6 +195,7 @@ export class HandsFreeProbe {
     } catch {}
     this.recorder?.release();
     this.recorder = null;
+    if (this.mode === "continuous") await VoiceCapture?.stop();
     this.keepAlive?.setActiveForLockScreen(false);
     this.keepAlive?.release();
     this.voice?.release();
@@ -238,19 +271,41 @@ export class HandsFreeProbe {
   private async listen(): Promise<string | null> {
     await this.play(await writeCache("hands-free-tone.wav", tone()));
     this.setPhase("listening");
+    const done = new Promise<void>((resolve) => {
+      this.finishListening = resolve;
+    });
+    const levels: string[] = [];
     try {
+      if (this.mode === "continuous" && VoiceCapture) {
+        const { File, Paths } = await import("expo-file-system");
+        const file = new File(Paths.cache, "hands-free-segment.wav");
+        await VoiceCapture.beginSegment(decodeURIComponent(file.uri.replace("file://", "")));
+        this.log(
+          `segment started (app ${AppState.currentState}, mic ${VoiceCapture.status().running ? "running" : "stopped"})`,
+        );
+        const poll = setInterval(() => levels.push(VoiceCapture!.status().level.toFixed(3)), 1000);
+        await done;
+        clearInterval(poll);
+        const segment = await VoiceCapture.endSegment();
+        this.log(
+          `segment ${segment.seconds.toFixed(1)}s, peak ${segment.peak.toFixed(3)}, levels ${levels.join(" ")}`,
+        );
+        return segment.uri;
+      }
       const recorder = new AudioModule.AudioRecorder(RECORDING_OPTIONS);
       this.recorder = recorder;
       await recorder.prepareToRecordAsync();
       recorder.record({ forDuration: 600 });
       this.log(`recording started (app ${AppState.currentState})`);
-      await new Promise<void>((resolve) => {
-        this.finishListening = resolve;
-      });
-      this.finishListening = null;
+      const poll = setInterval(() => {
+        const metering = recorder.getStatus().metering;
+        levels.push(metering === undefined ? "?" : metering.toFixed(0));
+      }, 1000);
+      await done;
+      clearInterval(poll);
       const seconds = Math.round(recorder.getStatus().durationMillis / 100) / 10;
       await recorder.stop();
-      this.log(`recording stopped after ${seconds}s`);
+      this.log(`recording stopped after ${seconds}s, dB ${levels.join(" ")}`);
       const uri = recorder.uri;
       recorder.release();
       this.recorder = null;
@@ -258,6 +313,8 @@ export class HandsFreeProbe {
     } catch (error) {
       this.log(`recording failed: ${error instanceof Error ? error.message : String(error)}`);
       return null;
+    } finally {
+      this.finishListening = null;
     }
   }
 
