@@ -123,6 +123,10 @@ function providerSummary(settings: SpeechSettings, provider: SpeechProviderConfi
   return `${SPEECH_PROVIDER_KINDS[provider.kind].label} · ${roles.join(", ") || "Not in use"}`;
 }
 
+function setDoubleTapToRead(doubleTapToRead: boolean) {
+  void updateSpeechSettings((current) => ({ ...current, doubleTapToRead }));
+}
+
 function setReadMode(readMode: SpeechReadMode) {
   void updateSpeechSettings((current) => ({ ...current, readMode }));
 }
@@ -171,6 +175,13 @@ export function SettingsSpeechRouteScreen() {
             disabled={!reader}
             value={settings.autoRead}
             onValueChange={setReadNewReplies}
+          />
+          <ListToggleRow
+            label="Double-tap to read"
+            description="Double-tap a reply to read it aloud or pause it. Turn off to select words with a double tap."
+            disabled={!reader}
+            value={settings.doubleTapToRead}
+            onValueChange={setDoubleTapToRead}
           />
         </SettingsSection>
 

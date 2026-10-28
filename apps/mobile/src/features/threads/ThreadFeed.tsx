@@ -144,6 +144,7 @@ import { FONT_FAMILIES } from "../../lib/fontFamilies";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { copyTextWithHaptic } from "../../lib/copyTextWithHaptic";
 import { SpeakMessageButton } from "../speech/SpeakMessageButton";
+import { ReadAloudOnDoubleTap } from "../speech/ReadAloudOnDoubleTap";
 import { downloadAndShareAttachment } from "../../lib/attachmentDownload";
 import { hasWideMarkdownBlock } from "../../lib/wideMarkdownBlocks";
 import {
@@ -1254,6 +1255,7 @@ function renderFeedEntry(
     readonly contentWidth: number;
     readonly threadTitle: string;
     readonly workflowOpening: WorkflowOpening | null;
+    readonly listScrolledAt: RefObject<number>;
   },
 ) {
   const entry = info.item;
@@ -1736,6 +1738,19 @@ function renderFeedEntry(
     }
 
     const enterAnimated = isFreshTimestamp(message.createdAt);
+    const markdownContent = (
+      <MarkdownImageAvailableWidthContext value={props.markdownContentWidth}>
+        <AssistantMarkdownContent
+          markdown={renderedText}
+          environmentId={props.environmentId}
+          markdownStyles={styles}
+          linkHandlers={props.markdownLinkHandlers}
+          onUseArtifactTemplate={props.onUseArtifactTemplate}
+          renderImage={props.renderMarkdownImage}
+          skills={props.skills}
+        />
+      </MarkdownImageAvailableWidthContext>
+    );
     return (
       <Animated.View
         className={cn(
@@ -1747,17 +1762,20 @@ function renderFeedEntry(
         {...(enterAnimated ? { entering: FadeIn.duration(220) } : {})}
       >
         {renderedText.trim().length > 0 ? (
-          <MarkdownImageAvailableWidthContext value={props.markdownContentWidth}>
-            <AssistantMarkdownContent
+          Platform.OS === "ios" ? (
+            <ReadAloudOnDoubleTap
+              enabled={showAssistantMeta}
+              messageId={message.id}
               markdown={renderedText}
-              environmentId={props.environmentId}
-              markdownStyles={styles}
-              linkHandlers={props.markdownLinkHandlers}
-              onUseArtifactTemplate={props.onUseArtifactTemplate}
-              renderImage={props.renderMarkdownImage}
-              skills={props.skills}
-            />
-          </MarkdownImageAvailableWidthContext>
+              title={props.threadTitle}
+              threadRef={props.detailRef}
+              listScrolledAt={props.listScrolledAt}
+            >
+              {markdownContent}
+            </ReadAloudOnDoubleTap>
+          ) : (
+            markdownContent
+          )
         ) : null}
         <MessageAttachmentList
           attachments={attachments}
@@ -2144,6 +2162,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   const endFollowEnabledRef = useRef(true);
   // Only user scrolls from drag through momentum break follow; ignore MVCP and programmatic adjustments.
   const userScrollSessionRef = useRef(false);
+  const listScrolledAtRef = useRef(0);
   const setEndFollow = (enabled: boolean) => {
     if (endFollowEnabledRef.current === enabled) {
       return;
@@ -2660,6 +2679,8 @@ export const ThreadFeed = memo(function ThreadFeed({
     onHeaderMaterialVisibilityChange?.(visible);
   };
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    // End-follow and MVCP scroll while a turn streams; only user motion should swallow taps.
+    if (userScrollSessionRef.current) listScrolledAtRef.current = Date.now();
     reportHeaderMaterialVisibility(event.nativeEvent.contentOffset.y + anchorTopInset > 6);
     // Re-arm follow only at the actual end; the broader threshold can reclaim upward drags during streaming.
     const listState = listRef.current?.getState();
@@ -3119,6 +3140,7 @@ export const ThreadFeed = memo(function ThreadFeed({
             skills: props.skills,
             workspaceRoot: props.workspaceRoot,
             workflowOpening,
+            listScrolledAt: listScrolledAtRef,
           })}
           {props.worktreeSetup && info.index === setupAnchorIndex ? (
             <WorktreeSetupCard key={props.threadId} {...props.worktreeSetup} />

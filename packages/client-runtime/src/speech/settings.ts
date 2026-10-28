@@ -29,6 +29,8 @@ export interface SpeechSettings {
   readonly playbackRate: number;
   /** Reads each finished reply in the open thread aloud. */
   readonly autoRead: boolean;
+  /** Double tap on a reply reads it aloud instead of selecting a word. */
+  readonly doubleTapToRead: boolean;
   /** What a reply read aloud plays by default on this device. */
   readonly readMode: SpeechReadMode;
   /** BCP 47 locale dictation listens for; null follows the thread's language. */
@@ -108,6 +110,7 @@ export const DEFAULT_SPEECH_SETTINGS: SpeechSettings = {
   transcriptionProviderId: null,
   playbackRate: 1,
   autoRead: false,
+  doubleTapToRead: true,
   readMode: "short",
   dictationLanguage: null,
 };
@@ -171,6 +174,7 @@ export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
     transcriptionProviderId,
     playbackRate,
     autoRead: raw.autoRead === true,
+    doubleTapToRead: raw.doubleTapToRead !== false,
     readMode: raw.readMode === "full" ? "full" : "short",
     dictationLanguage:
       typeof raw.dictationLanguage === "string" &&
