@@ -117,6 +117,7 @@ import { SettingsKeyboardRouteScreen } from "./features/settings/SettingsKeyboar
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsVoiceRouteScreen } from "./features/settings/SettingsVoiceRouteScreen";
 import { SettingsVoiceModelsRouteScreen } from "./features/settings/SettingsVoiceModelsRouteScreen";
+import { SettingsHandsFreeProbeRouteScreen } from "./features/speech/SettingsHandsFreeProbeRouteScreen";
 import {
   SettingsSpeechRoleRouteScreen,
   SettingsSpeechVoiceRouteScreen,
@@ -303,6 +304,11 @@ const SETTINGS_SCREENS = {
     screen: SettingsSpeechProviderRouteScreen,
     linking: "settings/speech/providers/:providerId",
     options: settingsPage("Provider"),
+  }),
+  SettingsHandsFreeProbe: createNativeStackScreen({
+    screen: SettingsHandsFreeProbeRouteScreen,
+    linking: "settings/speech/hands-free-test",
+    options: settingsPage("Hands-free test"),
   }),
   SettingsSpeechVoice: createNativeStackScreen({
     screen: SettingsSpeechVoiceRouteScreen,
