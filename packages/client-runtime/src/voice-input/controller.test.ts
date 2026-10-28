@@ -52,6 +52,7 @@ function createHarness(
   const recorder = new TestRecorder();
   let currentDraft: VoiceDraftSnapshot | null = initialDraft;
   const commits: Array<{ text: string; selection: { start: number; end: number } }> = [];
+  const events: string[] = [];
   const deleted: string[] = [];
   const dependencies: VoiceInputControllerDependencies = {
     recorder,
@@ -61,7 +62,11 @@ function createHarness(
     releaseRecording: async () => undefined,
     deleteRecording: (uri) => deleted.push(uri),
     readDraft: () => currentDraft,
-    commitDraft: (text, selection) => commits.push({ text, selection }),
+    commitDraft: (text, selection) => {
+      commits.push({ text, selection });
+      events.push(`commit:${text}`);
+    },
+    sendDraft: () => events.push("send"),
     onStateChange: vi.fn(),
     ...overrides,
   };
@@ -69,6 +74,7 @@ function createHarness(
     controller: new VoiceInputController(dependencies),
     recorder,
     commits,
+    events,
     deleted,
     setDraft: (next: VoiceDraftSnapshot | null) => {
       currentDraft = next;
@@ -250,6 +256,50 @@ describe("VoiceInputController", () => {
     expect(harness.deleted).toEqual(["file:///voice.m4a"]);
   });
 
+  it.each([
+    { outcome: "a transcript", transcript: "new text", events: ["commit:hello new text", "send"] },
+    { outcome: "no speech", transcript: "  ", events: [] },
+    { outcome: "a failed transcription", transcript: null, events: [] },
+  ])("stop and send sends only after committing $outcome", async (row) => {
+    const transcription = deferred<string>();
+    const transcriptionEntered = deferred<void>();
+    const harness = createHarness({
+      getTranscriber: () => ({
+        prepare: async () =>
+          preparedTranscription(() => {
+            transcriptionEntered.resolve(undefined);
+            return transcription.promise;
+          }),
+      }),
+    });
+    await harness.controller.start();
+    const stopping = harness.controller.stop("send");
+    await transcriptionEntered.promise;
+    expect(harness.controller.currentState).toMatchObject({
+      phase: "transcribing",
+      sendPending: true,
+    });
+    await harness.controller.stop("send");
+    expect(harness.controller.reportUnsent()).toBe(false);
+    if (row.transcript === null) transcription.reject(new Error("Transcription failed"));
+    else transcription.resolve(row.transcript);
+    await stopping;
+
+    expect(harness.events).toEqual(row.events);
+    expect(harness.controller.currentState.phase).toBe(row.events.length > 0 ? "idle" : "error");
+    expect(harness.controller.currentState.sendPending).toBeUndefined();
+    // Only a committed transcript can be reported unsent; an existing error keeps its message.
+    expect(harness.controller.reportUnsent()).toBe(row.events.length > 0);
+    if (row.events.length > 0) {
+      expect(harness.controller.currentState).toMatchObject({
+        phase: "error",
+        error: "Added to draft. Not sent.",
+        errorAction: null,
+        unsent: true,
+      });
+    }
+  });
+
   it.each(["cancel", "dispose", "ownerChanged"] as const)(
     "queues the next recording after %s until transcription and audio cleanup settle",
     async (action) => {
@@ -346,13 +396,13 @@ describe("VoiceInputController", () => {
       }),
     });
     await harness.controller.start();
-    const stopping = harness.controller.stop();
+    const stopping = harness.controller.stop("send");
     await transcriptionEntered.promise;
     harness.setDraft(draft({ ownerKey: "environment:other-thread" }));
     transcription.resolve("late text");
     await stopping;
 
-    expect(harness.commits).toEqual([]);
+    expect(harness.events).toEqual([]);
     expect(harness.controller.currentState.error).toContain("draft changed");
   });
 

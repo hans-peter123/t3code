@@ -1,5 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useRef } from "react";
+import { AccessibilityInfo, Platform } from "react-native";
 import {
   voiceInputBlocksSubmission,
   type VoiceInputState,
@@ -22,6 +23,8 @@ export function useVoiceInputController(input: {
   readonly dictation?: DictationContext;
   readonly onChangeDraftMessage: (value: string) => void;
   readonly onChangeSelection: (selection: ComposerEditorSelection) => void;
+  /** Runs after a stop-and-send transcript lands in this composer's draft. */
+  readonly onSendAfterDictation?: () => void;
 }) {
   const global = useGlobalVoiceInput();
   const { session } = global;
@@ -46,12 +49,24 @@ export function useVoiceInputController(input: {
     }, [input.ownerKey, session]),
   );
 
+  // The composer's notice announces itself; off screen the edge pill is the only cue.
+  const reportNotSent = useCallback(
+    (ownerKey: string) => {
+      if (session.ownerKey !== ownerKey || !session.controller.reportUnsent()) return;
+      if (Platform.OS === "ios" && !session.getSnapshot().focusedOwners.has(ownerKey)) {
+        AccessibilityInfo.announceForAccessibility(session.controller.currentState.error ?? "");
+      }
+    },
+    [session],
+  );
+
   const start = useCallback(() => {
     const captured = latestInput.current;
-    if (!captured.ownerKey || captured.disabled) return;
+    const ownerKey = captured.ownerKey;
+    if (!ownerKey || captured.disabled) return;
     void session.start({
       ...createVoiceInputTarget(
-        captured.ownerKey,
+        ownerKey,
         captured.readDraftMessage,
         (text, selection) => {
           captured.onChangeDraftMessage(text);
@@ -61,11 +76,23 @@ export function useVoiceInputController(input: {
         },
         captured.selection,
         captured.subscribeToDraftChanges,
+        // Only the composer still showing this draft sends; otherwise the text waits in the draft.
+        () => {
+          if (
+            mounted.current &&
+            latestInput.current.ownerKey === ownerKey &&
+            session.getSnapshot().focusedOwners.has(ownerKey)
+          ) {
+            latestInput.current.onSendAfterDictation?.();
+          } else {
+            reportNotSent(ownerKey);
+          }
+        },
       ),
       label: captured.label,
       ...(captured.dictation ? { dictation: captured.dictation } : {}),
     });
-  }, [session]);
+  }, [reportNotSent, session]);
   const state = global.ownerKey === input.ownerKey ? global.state : IDLE_STATE;
   const isBusy = voiceInputBlocksSubmission(state);
   return {
@@ -78,6 +105,14 @@ export function useVoiceInputController(input: {
     blocksSubmission: isBusy,
     start,
     stop: global.stop,
+    stopAndSend: () => session.controller.stop("send"),
+    reportNotSent,
+    /** Clears that owner's stale dictation error without touching a newer recording. */
+    dismissError: (ownerKey: string) => {
+      if (session.ownerKey === ownerKey && session.controller.currentState.phase === "error") {
+        session.controller.cancel();
+      }
+    },
     cancel: global.cancel,
   };
 }

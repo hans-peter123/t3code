@@ -13,6 +13,10 @@ export type VoiceInputState = {
   readonly phase: VoiceInputPhase;
   readonly error: string | null;
   readonly errorAction: "retry" | "settings" | null;
+  /** Set while transcribing a recording the user asked to send once its transcript lands. */
+  readonly sendPending?: true;
+  /** Marks the error as the notice that a stop-and-send transcript stayed in the draft. */
+  readonly unsent?: true;
 };
 
 export function voiceInputBlocksSubmission(state: VoiceInputState): boolean {
@@ -57,6 +61,8 @@ export type VoiceInputControllerDependencies = {
     text: string,
     selection: { readonly start: number; readonly end: number },
   ) => void;
+  /** Runs right after a stop-and-send transcript is committed; never after an empty or failed one. */
+  readonly sendDraft: () => void;
   readonly onStateChange: (state: VoiceInputState) => void;
 };
 
@@ -302,9 +308,22 @@ export class VoiceInputController {
     }
   }
 
-  stop(): Promise<void> {
+  /** `send` commits the transcript like `insert`, then sends the draft; a press while transcribing does nothing. */
+  stop(intent: "insert" | "send" = "insert"): Promise<void> {
     if (this.state.phase !== "recording") return Promise.resolve();
-    return this.finishRecording(false, null);
+    return this.finishRecording(false, null, intent);
+  }
+
+  /** Says a stop-and-send transcript stayed in the draft; false once another dictation began. */
+  reportUnsent(): boolean {
+    if (this.state.phase !== "idle") return false;
+    this.setState({
+      phase: "error",
+      error: "Added to draft. Not sent.",
+      errorAction: null,
+      unsent: true,
+    });
+    return true;
   }
 
   cancel(): void {
@@ -382,11 +401,17 @@ export class VoiceInputController {
   private async finishRecording(
     alreadyStopped: boolean,
     completedUri: string | null,
+    intent: "insert" | "send" = "insert",
   ): Promise<void> {
     if (this.finishing || this.state.phase !== "recording") return;
     this.finishing = true;
     const operationToken = this.operationToken;
-    this.setState({ phase: "transcribing", error: null, errorAction: null });
+    this.setState({
+      phase: "transcribing",
+      error: null,
+      errorAction: null,
+      ...(intent === "send" ? { sendPending: true as const } : {}),
+    });
 
     try {
       if (!alreadyStopped) await this.dependencies.recorder.stop();
@@ -441,6 +466,7 @@ export class VoiceInputController {
 
       this.dependencies.commitDraft(result.text, result.selection);
       this.setState(IDLE_STATE);
+      if (intent === "send") this.dependencies.sendDraft();
     } catch {
       if (this.isCurrent(operationToken)) {
         this.setError("Could not finish voice recording.", "retry");
