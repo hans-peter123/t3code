@@ -118,7 +118,7 @@ function resolveProviderInteractionMode(
 }
 
 export function resolveQueuedThreadSettings(
-  message: QueuedThreadMessage,
+  message: Pick<QueuedThreadMessage, "modelSelection" | "runtimeMode" | "interactionMode">,
   thread: ThreadSettingsSnapshot,
   providers: ReadonlyArray<
     Pick<ServerProvider, "instanceId" | "showInteractionModeToggle"> & {

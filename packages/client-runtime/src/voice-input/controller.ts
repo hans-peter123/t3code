@@ -23,6 +23,9 @@ function isMicrophonePermissionError(error: unknown): boolean {
   );
 }
 
+/** A reason recording cannot start that the user can act on; its message is shown as is. */
+export class VoiceRecordingUnavailableError extends Error {}
+
 export type VoiceInputPhase =
   | "idle"
   | "preparing"
@@ -360,8 +363,10 @@ export class VoiceInputController {
     } catch (error) {
       if (this.isCurrent(operationToken))
         this.setError(
-          isMicrophonePermissionError(error)
-            ? MICROPHONE_PERMISSION_ERROR
+          error instanceof VoiceRecordingUnavailableError
+            ? error.message
+            : isMicrophonePermissionError(error)
+              ? MICROPHONE_PERMISSION_ERROR
             : "Could not start voice recording.",
           "retry",
         );

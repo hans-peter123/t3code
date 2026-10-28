@@ -21,6 +21,7 @@ import { getNativeShowcaseScene } from "../showcase/nativeShowcaseScene";
 import {
   voiceInputBlocksSubmission,
   type VoiceTranscriber,
+  VoiceRecordingUnavailableError,
 } from "@t3tools/client-runtime/voice-input";
 import { createLazyVoiceRecorder } from "./lazyVoiceRecorder";
 import { VOICE_WAVEFORM_SAMPLE_COUNT } from "./voiceInputMetering";
@@ -31,6 +32,7 @@ import { makePermissionStatusAtom } from "../../lib/permissionStatusAtom";
 import {
   acquireAudioSession,
   activateAudioSession,
+  conversationHoldsAudioSession,
   releaseAudioSession,
 } from "../../lib/audioSession";
 
@@ -135,7 +137,14 @@ const voiceInputAtom = Atom.make((get) => {
       const token = acquireAudioSession("recording");
       audioToken = token;
       try {
-        await activateAudioSession(token);
+        // A hands-free conversation keeps the microphone until it ends.
+        if (!(await activateAudioSession(token))) {
+          throw new VoiceRecordingUnavailableError(
+            conversationHoldsAudioSession()
+              ? "End the conversation to dictate."
+              : "The microphone is in use.",
+          );
+        }
       } catch (error) {
         await releaseAudioSession(token).catch(() => {});
         throw error;

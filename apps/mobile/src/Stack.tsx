@@ -1,5 +1,6 @@
 import { isDraftThreadRoute } from "./features/threads/thread-route-state";
 import { ComponentCatalogScreen } from "./features/development/ComponentCatalogScreen";
+import { ConversationRouteScreen } from "./features/handsfree/ConversationRouteScreen";
 import { PullRequestGuideStopScreen } from "./features/pull-requests/guide/PullRequestGuideScreen";
 import { PullRequestInlineCommentScreen } from "./features/pull-requests/PullRequestInlineCommentScreen";
 import { PullRequestDiscussionScreen } from "./features/pull-requests/PullRequestDiscussionScreen";
@@ -117,7 +118,6 @@ import { SettingsKeyboardRouteScreen } from "./features/settings/SettingsKeyboar
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsVoiceRouteScreen } from "./features/settings/SettingsVoiceRouteScreen";
 import { SettingsVoiceModelsRouteScreen } from "./features/settings/SettingsVoiceModelsRouteScreen";
-import { SettingsHandsFreeProbeRouteScreen } from "./features/speech/SettingsHandsFreeProbeRouteScreen";
 import {
   SettingsDictationLanguageRouteScreen,
   SettingsSpeechRoleRouteScreen,
@@ -310,11 +310,6 @@ const SETTINGS_SCREENS = {
     screen: SettingsSpeechProviderRouteScreen,
     linking: "settings/speech/providers/:providerId",
     options: settingsPage("Provider"),
-  }),
-  SettingsHandsFreeProbe: createNativeStackScreen({
-    screen: SettingsHandsFreeProbeRouteScreen,
-    linking: "settings/speech/hands-free-test",
-    options: settingsPage("Hands-free test"),
   }),
   SettingsSpeechVoice: createNativeStackScreen({
     screen: SettingsSpeechVoiceRouteScreen,
@@ -670,6 +665,11 @@ const RootStackConfig = createWorkspaceStackNavigator({
       screen: DevicePreviewRouteScreen,
       linking: `${THREAD_LINKING_PREFIX}/devices`,
       options: immersiveRoute({ hideSystemBars: true }),
+    }),
+    ThreadConversation: createNativeStackScreen({
+      screen: ConversationRouteScreen,
+      linking: `${THREAD_LINKING_PREFIX}/conversation`,
+      options: immersiveRoute(),
     }),
     ThreadBrowserPreview: createNativeStackScreen({
       screen: BrowserPreviewRouteScreen,
