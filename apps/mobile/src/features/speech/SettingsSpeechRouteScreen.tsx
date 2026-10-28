@@ -190,6 +190,14 @@ export function SettingsSpeechRouteScreen() {
           ))}
           <ListActionRow icon="plus" label="Add provider" onPress={chooseKind} />
         </SettingsSection>
+
+        <SettingsSection title="Labs" footer="Checks hands-free talking with the screen locked.">
+          <ListRow
+            icon="mic"
+            label="Hands-free test"
+            onPress={() => navigation.navigate("SettingsHandsFreeProbe")}
+          />
+        </SettingsSection>
       </ScrollView>
     </View>
   );
