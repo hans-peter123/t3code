@@ -8,6 +8,7 @@ Hauptprozess (`apps/desktop/src/ipc/methods/speechRequest.ts`), damit eigene Ser
 iOS:
 
 - Lautsprecher-Knopf neben „Kopieren“ unter jeder Antwort; während der Wiedergabe: −15 s, Pause/Weiter, +15 s, Stopp, Zeit.
+- Geschwindigkeit unter **Einstellungen → Read aloud → Playback speed**: 0,75× bis 2× in 0,05er-Schritten (−/+, Tippen auf den Wert setzt auf 1× zurück).
 - Wiedergabe läuft im Hintergrund weiter und erscheint auf dem Sperrbildschirm / im Kontrollzentrum (Play/Pause, ±15 s, Scrubben).
 - Provider in **Einstellungen → Read aloud**: OpenAI, ElevenLabs oder ein eigener OpenAI-kompatibler Server
   (z. B. Kokoro-FastAPI im NetBird-Netz). API-Keys liegen im iOS-Schlüsselbund.
