@@ -24,6 +24,8 @@ export interface SpeechSettings {
   /** Transcribes dictation; null keeps Apple's on-device recognition. */
   readonly transcriptionProviderId: string | null;
   readonly playbackRate: number;
+  /** Reads each finished reply in the open thread aloud. */
+  readonly autoRead: boolean;
 }
 
 export const SPEECH_PROVIDER_KINDS: Record<
@@ -98,6 +100,7 @@ export const DEFAULT_SPEECH_SETTINGS: SpeechSettings = {
   activeProviderId: null,
   transcriptionProviderId: null,
   playbackRate: 1,
+  autoRead: false,
 };
 
 export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
@@ -151,7 +154,13 @@ export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
     typeof raw.playbackRate === "number" && Number.isFinite(raw.playbackRate)
       ? clampPlaybackRate(raw.playbackRate)
       : 1;
-  return { providers, activeProviderId, transcriptionProviderId, playbackRate };
+  return {
+    providers,
+    activeProviderId,
+    transcriptionProviderId,
+    playbackRate,
+    autoRead: raw.autoRead === true,
+  };
 }
 
 /** A provider of the given kind with its default models and voice. */
