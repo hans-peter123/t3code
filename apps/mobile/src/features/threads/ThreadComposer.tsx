@@ -1,5 +1,6 @@
 import { useSidebarWorkspaceTabs } from "../layout/workspace/useSystemWorkspaceTabBar";
 import { Button } from "../../components/ui/Button";
+import { Notice } from "../../components/ui/Notice";
 import * as Dialog from "../../components/ui/Dialog";
 import type { ComposerTextPaste } from "../../native/T3ComposerEditor.types";
 import { useDeviceType } from "../../native/native-layout-metrics";
@@ -431,6 +432,8 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   const pendingPastedTextAttachmentCountRef = useRef(0);
   const pendingNativeImagePasteCountRef = useRef(0);
   const [pendingPastedTextAttachmentCount, setPendingPastedTextAttachmentCount] = useState(0);
+  const [dictationSendRequest, setDictationSendRequest] = useState(0);
+  const handledDictationSendRequestRef = useRef(0);
   const settingsRoutePresentedRef = useRef(false);
   const settingsSheetPresentation = useThreadSettingsSheetPresentation({
     editorRef: inputRef,
@@ -586,15 +589,18 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     selection: composerMenu.selection,
     onChangeDraftMessage: (text) => setComposerDraftText(composerDraftKey, text),
     onChangeSelection: composerMenu.onSelectionChange,
+    onSendAfterDictation: () => setDictationSendRequest((request) => request + 1),
     ...(props.dictation ? { dictation: props.dictation } : {}),
   });
-  const isSubmissionLocked =
-    props.interactionLocked === true || queuedEdit?.saving === true || voiceInput.blocksSubmission;
+  const interactionLocked = props.interactionLocked === true || queuedEdit?.saving === true;
+  const isSubmissionLocked = interactionLocked || voiceInput.blocksSubmission;
   const voicePresentation = resolveVoiceComposerPresentation(
     voiceInput.state,
     voiceInput.elapsedSeconds,
   );
-  const isVoiceInputPresented = voicePresentation.statusKind === "active";
+  // The unsent notice sits above the editor so the draft it describes stays visible and editable.
+  const unsentNotice = voiceInput.state.unsent === true ? voiceInput.state.error : null;
+  const isVoiceInputPresented = voicePresentation.statusKind === "active" && unsentNotice === null;
   const isExpanded = isFocused || settingsSheetPresentation.keepsComposerExpanded;
   const { layout } = useAdaptiveWorkspaceLayout();
   const floatingSidebarComposer = useAndroidFloatingTabs() && layout.usesSplitView;
@@ -623,13 +629,14 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     props.sendBlockedReason ??
     (pendingPastedTextAttachmentCount > 0 ? "Attaching pasted text" : null) ??
     attachmentBlockReason;
-  const canSend =
+  const sendAvailable =
     (props.canOperateThread || props.connectionState !== "connected") &&
-    hasContent &&
     !contextImports[composerDraftKey] &&
-    !isSubmissionLocked &&
     sendBlockedReason === null &&
     !modelUnavailable;
+  const canSend = sendAvailable && hasContent && !isSubmissionLocked;
+  const canStopAndSend =
+    sendAvailable && !interactionLocked && voiceInput.state.phase === "recording";
 
   // A pending sheet presentation or focus restore has no composer left to act on.
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- disposes the pending settings sheet presentation and focus restore on unmount
@@ -675,20 +682,24 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     settingsSheetPresentation.onEditorFocusChange(false);
     onEditorFocusChange?.(false);
   };
-  const handleSend = async (followUp?: ActiveTurnComposerAction) => {
+  /** Resolves true only when the draft was sent or handled as a command. */
+  const handleSend = async (followUp?: ActiveTurnComposerAction): Promise<boolean> => {
     if (
       isSubmissionLocked ||
       sendBlockedReason !== null ||
       pendingPastedTextAttachmentCountRef.current > 0 ||
       pendingNativeImagePasteCountRef.current > 0
     )
-      return;
+      return false;
+    const draftKey = composerDraftKey;
     if (usageLimitsOffered && isUsageLimitsCommand(draftMessage) && draftAttachments.length === 0) {
-      if (openUsageLimits()) onChangeDraftMessage("");
-      return;
+      if (!openUsageLimits()) return false;
+      onChangeDraftMessage("");
+      voiceInput.dismissError(draftKey);
+      return true;
     }
     const threadKey = scopedThreadKey(props.environmentId, props.selectedThread.id);
-    if (inFlightThreadIdsRef.current.has(threadKey)) return;
+    if (inFlightThreadIdsRef.current.has(threadKey)) return false;
     inFlightThreadIdsRef.current.add(threadKey);
     await inputRef.current?.flushPendingInput();
     const draftAtSend = getComposerDraftSnapshot(composerDraftKey);
@@ -708,16 +719,47 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     inFlightThreadIdsRef.current.delete(threadKey);
     if (AsyncResult.isFailure(sent)) {
       console.error("[composer] send failed", squashAtomCommandFailure(sent));
-      return;
+      return false;
     }
-    if (sent.value === null) return;
+    // Approval feedback and Codex /feedback resolve null but consume the draft.
+    const consumed =
+      sent.value !== null ||
+      (draftAtSend.text.trim() !== "" && getComposerDraftSnapshot(draftKey).text.trim() === "");
+    if (!consumed) return false;
+    voiceInput.dismissError(draftKey);
+    if (sent.value === null) return true;
     // Arm after send so preference reads and native Activity startup do not delay tap-frame feedback.
     armAgentAwarenessLiveActivityForLocalWork({
       environmentId: props.environmentId,
       threadTitle: props.selectedThread.title,
       projectTitle: props.environmentLabel ?? "T3 Code",
     });
+    return true;
   };
+
+  const sendAfterDictation = useEffectEvent(async () => {
+    const draftKey = composerDraftKey;
+    if (!canSend || !(await handleSend())) voiceInput.reportNotSent(draftKey);
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- stop and send runs after the transcript renders into the draft, so the normal send path reads it
+  useEffect(() => {
+    if (dictationSendRequest === handledDictationSendRequestRef.current || voiceInput.isBusy) {
+      return;
+    }
+    handledDictationSendRequestRef.current = dictationSendRequest;
+    void sendAfterDictation();
+  }, [dictationSendRequest, voiceInput.isBusy]);
+
+  const stopAgentButton = (
+    <ComposerActionButton
+      size={usesLargeControls ? "large" : "regular"}
+      accessibilityLabel="Stop agent"
+      icon="stop.fill"
+      variant="danger"
+      disabled={!props.canOperateThread}
+      onPress={props.onStopThread}
+    />
+  );
 
   const lockedProviderInstanceId = props.canSwitchProvider
     ? undefined
@@ -887,6 +929,17 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
             onPress={openSettings}
           />
         ) : null}
+        {unsentNotice !== null ? (
+          <View className="pb-2">
+            <Notice
+              message={unsentNotice}
+              icon="exclamationmark.circle"
+              iconTone="danger"
+              floating
+              onDismiss={() => voiceInput.dismissError(composerDraftKey)}
+            />
+          </View>
+        ) : null}
 
         <ComposerSurface
           animateLayout={false}
@@ -972,7 +1025,11 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                   skills={composerMenu.skills}
                   selection={composerMenu.selection}
                   onChangeText={(text) => {
-                    if (!isSubmissionLocked) props.onChangeDraftMessage(text);
+                    if (isSubmissionLocked) return;
+                    props.onChangeDraftMessage(text);
+                    if (unsentNotice !== null && text.trim() === "") {
+                      voiceInput.dismissError(composerDraftKey);
+                    }
                   }}
                   onSelectionChange={composerMenu.onSelectionChange}
                   onPasteImages={(uris) => {
@@ -1110,14 +1167,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                   onCancel={voiceInput.cancel}
                 />
                 {showStopAction ? (
-                  <ComposerActionButton
-                    size={usesLargeControls ? "large" : "regular"}
-                    accessibilityLabel="Stop agent"
-                    icon="stop.fill"
-                    variant="danger"
-                    disabled={!props.canOperateThread}
-                    onPress={props.onStopThread}
-                  />
+                  stopAgentButton
                 ) : showResumeAction ? (
                   <ComposerActionButton
                     size={usesLargeControls ? "large" : "regular"}
@@ -1167,6 +1217,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                   presentation={voicePresentation}
                 />
                 <View className="shrink-0 flex-row items-center">
+                  {voiceInput.isBusy && showStopAction ? stopAgentButton : null}
                   <ComposerDictationPrimaryAction
                     size={usesLargeControls ? "large" : "regular"}
                     state={voiceInput.state}
@@ -1177,16 +1228,23 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                     onConfirm={voiceInput.stop}
                     onCancel={voiceInput.cancel}
                   />
-                  {showStopAction ? (
-                    <ComposerActionButton
-                      size={usesLargeControls ? "large" : "regular"}
-                      accessibilityLabel="Stop agent"
-                      icon="stop.fill"
-                      variant="danger"
-                      disabled={!props.canOperateThread}
-                      onPress={props.onStopThread}
-                    />
-                  ) : showResumeAction && voicePresentation.showsSend ? (
+                  {voiceInput.isBusy ? (
+                    // Saving a queued edit is not a send, and its checkmark would mirror Finish dictation.
+                    queuedEdit === null ? (
+                      <ComposerActionButton
+                        size={usesLargeControls ? "large" : "regular"}
+                        accessibilityLabel={
+                          sendBlockedReason ?? `Stop recording and ${sendLabel.toLowerCase()}`
+                        }
+                        icon={sendPresentation.icon}
+                        variant="primary"
+                        disabled={!canStopAndSend}
+                        onPress={() => void voiceInput.stopAndSend()}
+                      />
+                    ) : null
+                  ) : showStopAction ? (
+                    stopAgentButton
+                  ) : showResumeAction ? (
                     <ComposerActionButton
                       size={usesLargeControls ? "large" : "regular"}
                       accessibilityLabel="Resume thread"
@@ -1194,7 +1252,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                       disabled={!props.canOperateThread || resumingQueue}
                       onPress={() => void handleResumeQueue()}
                     />
-                  ) : voicePresentation.showsSend ? (
+                  ) : (
                     <SendActionButton
                       size={usesLargeControls ? "large" : "regular"}
                       accessibilityLabel={sendBlockedReason ?? sendLabel}
@@ -1202,7 +1260,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                       disabled={!canSend}
                       onSend={handleSend}
                     />
-                  ) : null}
+                  )}
                 </View>
               </ComposerToolbarRow>
             </ComposerDictationToolbar>

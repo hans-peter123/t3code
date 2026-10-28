@@ -93,6 +93,9 @@ function EdgeDictationPill(props: {
   const isError = phase === "error";
   const openSettings = isError && voice.state.errorAction === "settings";
   const label = voice.label ?? "Draft";
+  // The unsent notice names its thread, since off screen nothing else says which draft it means.
+  const isUnsent = voice.state.unsent === true;
+  const errorText = isUnsent ? `Not sent: ${label}` : presentation.statusLabel;
 
   return (
     <View pointerEvents="box-none" className="absolute inset-0">
@@ -110,8 +113,12 @@ function EdgeDictationPill(props: {
             style={[{ width: COLLAPSED_WIDTH }, collapsedStyle]}
           >
             <Pressable
-              accessibilityLabel={`${presentation.statusLabel}, dictating into ${label}`}
-              accessibilityHint="Shows dictation controls"
+              accessibilityLabel={
+                isUnsent
+                  ? `Added to draft, not sent: ${label}`
+                  : `${presentation.statusLabel}, dictating into ${label}`
+              }
+              accessibilityHint={isUnsent ? "Shows the notice" : "Shows dictation controls"}
               accessibilityRole="button"
               className="flex-1 flex-row items-center justify-center gap-1.5 active:opacity-70"
               hitSlop={{ top: 6, bottom: 6, left: 6 }}
@@ -146,7 +153,9 @@ function EdgeDictationPill(props: {
             style={[{ width: expandedWidth }, expandedStyle]}
           >
             <Pressable
-              accessibilityLabel={isError ? "Dismiss voice input error" : "Cancel dictation"}
+              accessibilityLabel={
+                isUnsent ? "Dismiss" : isError ? "Dismiss voice input error" : "Cancel dictation"
+              }
               accessibilityRole="button"
               className="size-[30px] items-center justify-center active:opacity-70"
               onPress={voice.cancel}
@@ -159,8 +168,8 @@ function EdgeDictationPill(props: {
               />
             </Pressable>
             <Pressable
-              accessibilityLabel={isError ? (presentation.statusLabel ?? label) : label}
-              accessibilityHint="Hides dictation controls"
+              accessibilityLabel={isError ? (errorText ?? label) : label}
+              accessibilityHint={isUnsent ? "Hides the notice" : "Hides dictation controls"}
               accessibilityRole="button"
               className="min-w-0 flex-1 justify-center self-stretch active:opacity-70"
               onPress={() => setExpanded(false)}
@@ -172,7 +181,7 @@ function EdgeDictationPill(props: {
                 )}
                 numberOfLines={1}
               >
-                {isError ? presentation.statusLabel : label}
+                {isError ? errorText : label}
               </Text>
             </Pressable>
             {phase === "recording" ? (
@@ -200,7 +209,8 @@ function EdgeDictationPill(props: {
                 </Pressable>
               </>
             ) : isError ? (
-              voice.isAvailable ? (
+              // A notice without an action, such as an unsent transcript, has nothing to retry.
+              voice.isAvailable && voice.state.errorAction !== null ? (
                 <Pressable
                   accessibilityLabel={openSettings ? "Open microphone settings" : "Retry dictation"}
                   accessibilityRole="button"
