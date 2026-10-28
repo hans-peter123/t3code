@@ -11,6 +11,8 @@ export interface SpeechProviderConfig {
   /** Text-to-speech model. */
   readonly model: string;
   readonly voice: string;
+  /** Display name of a voice picked from the provider's list; absent for a typed voice ID. */
+  readonly voiceName?: string;
   /** Speech-to-text model used for dictation. */
   readonly transcriptionModel: string;
 }
@@ -124,6 +126,7 @@ export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
             baseUrl: text("baseUrl"),
             model: text("model"),
             voice: text("voice"),
+            ...(typeof provider.voiceName === "string" ? { voiceName: provider.voiceName } : {}),
             // Providers saved before dictation existed get the kind's default.
             transcriptionModel:
               typeof provider.transcriptionModel === "string"
@@ -149,6 +152,49 @@ export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
       ? clampPlaybackRate(raw.playbackRate)
       : 1;
   return { providers, activeProviderId, transcriptionProviderId, playbackRate };
+}
+
+/** A provider of the given kind with its default models and voice. */
+export function newSpeechProvider(
+  id: string,
+  kind: SpeechProviderKind,
+  patch: Partial<Omit<SpeechProviderConfig, "id" | "kind">> = {},
+): SpeechProviderConfig {
+  const defaults = SPEECH_PROVIDER_KINDS[kind];
+  return {
+    id,
+    kind,
+    name: "",
+    apiKey: "",
+    baseUrl: "",
+    model: defaults.defaultModel,
+    voice: defaults.defaultVoice,
+    transcriptionModel: defaults.defaultTranscriptionModel,
+    ...patch,
+  };
+}
+
+export function withSpeechProviderAdded(
+  current: SpeechSettings,
+  provider: SpeechProviderConfig,
+): SpeechSettings {
+  return {
+    ...current,
+    providers: [...current.providers, provider],
+    // The first provider also turns read aloud on; later ones are picked explicitly.
+    activeProviderId: current.providers.length === 0 ? provider.id : current.activeProviderId,
+  };
+}
+
+/** Removing a provider turns its jobs off rather than handing them to another provider. */
+export function withSpeechProviderRemoved(current: SpeechSettings, id: string): SpeechSettings {
+  return {
+    ...current,
+    providers: current.providers.filter((provider) => provider.id !== id),
+    activeProviderId: current.activeProviderId === id ? null : current.activeProviderId,
+    transcriptionProviderId:
+      current.transcriptionProviderId === id ? null : current.transcriptionProviderId,
+  };
 }
 
 export function activeSpeechProvider(current: SpeechSettings): SpeechProviderConfig | null {
@@ -202,6 +248,7 @@ export interface SpeechSettingsStore {
 export function createSpeechSettingsStore(storage: SpeechSettingsStorage): SpeechSettingsStore {
   let settings = DEFAULT_SPEECH_SETTINGS;
   let loaded: Promise<void> | null = null;
+  let writes: Promise<void> = Promise.resolve();
   const listeners = new Set<() => void>();
   const emit = () => {
     for (const listener of listeners) listener();
@@ -226,7 +273,12 @@ export function createSpeechSettingsStore(storage: SpeechSettingsStorage): Speec
       await load();
       settings = sanitizeSpeechSettings(transform(settings));
       emit();
-      await storage.write(JSON.stringify(settings));
+      // One write at a time, each storing the newest settings, so a slow write never lands last.
+      const write = writes.then(() => storage.write(JSON.stringify(settings)));
+      writes = write.catch((error: unknown) => {
+        console.warn("[speech] could not save settings", error);
+      });
+      await writes;
     },
     current: () => settings,
     subscribe: (listener) => {

@@ -1,6 +1,7 @@
 import {
   describeTranscriptionTest,
   listElevenLabsVoices,
+  newSpeechProvider,
   silentWav,
   transcribeAudio,
   OPENAI_VOICES,
@@ -8,6 +9,8 @@ import {
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,
   transcriptionProviderProblem,
+  withSpeechProviderAdded,
+  withSpeechProviderRemoved,
   type SpeechProviderConfig,
   type SpeechProviderKind,
   type SpeechVoice,
@@ -41,24 +44,9 @@ function editProvider(id: string, patch: Partial<SpeechProviderConfig>) {
 }
 
 function addProvider(kind: SpeechProviderKind) {
-  const defaults = SPEECH_PROVIDER_KINDS[kind];
-  const provider: SpeechProviderConfig = {
-    // @effect-diagnostics-next-line cryptoRandomUUID:off - a local settings id, not Effect code.
-    id: crypto.randomUUID(),
-    kind,
-    name: "",
-    apiKey: "",
-    baseUrl: "",
-    model: defaults.defaultModel,
-    voice: defaults.defaultVoice,
-    transcriptionModel: defaults.defaultTranscriptionModel,
-  };
-  void updateSpeechSettings((current) => ({
-    ...current,
-    providers: [...current.providers, provider],
-    // The first provider also turns read aloud on; later ones are picked explicitly.
-    activeProviderId: current.providers.length === 0 ? provider.id : current.activeProviderId,
-  }));
+  // @effect-diagnostics-next-line cryptoRandomUUID:off - a local settings id, not Effect code.
+  const provider = newSpeechProvider(crypto.randomUUID(), kind);
+  void updateSpeechSettings((current) => withSpeechProviderAdded(current, provider));
 }
 
 function ProviderSelect(props: {
@@ -155,6 +143,7 @@ function ProviderCard(props: { readonly provider: SpeechProviderConfig }) {
               setBusy("sample");
               speakMessage({
                 messageId: `sample:${provider.id}`,
+                provider,
                 markdown: SAMPLE_TEXT,
                 title: "Voice sample",
               })
@@ -186,10 +175,9 @@ function ProviderCard(props: { readonly provider: SpeechProviderConfig }) {
             variant="destructive-outline"
             onClick={() => {
               stopSpeech();
-              void updateSpeechSettings((current) => ({
-                ...current,
-                providers: current.providers.filter((entry) => entry.id !== provider.id),
-              }));
+              void updateSpeechSettings((current) =>
+                withSpeechProviderRemoved(current, provider.id),
+              );
             }}
           >
             Remove
