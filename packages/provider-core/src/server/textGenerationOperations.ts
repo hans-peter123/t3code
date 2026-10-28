@@ -11,6 +11,7 @@ import {
   buildCommitMessagePrompt,
   buildPrContentPrompt,
   buildReviewGuidePrompt,
+  buildSpokenSummaryPrompt,
   buildThreadTitlePrompt,
 } from "./textGenerationPrompts.ts";
 import {
@@ -194,6 +195,18 @@ export function fromRunner(name: string, run: Runner): ProviderTextGeneration {
     });
   });
 
+  const generateSpokenSummary: ProviderTextGeneration["generateSpokenSummary"] = Effect.fn(
+    `${name}.generateSpokenSummary`,
+  )(function* (input) {
+    const generated = yield* run({
+      operation: "generateSpokenSummary",
+      cwd: input.cwd,
+      modelSelection: input.modelSelection,
+      ...buildSpokenSummaryPrompt(input),
+    });
+    return { text: generated.text.trim() };
+  });
+
   return {
     generateCommitMessage,
     generatePrContent,
@@ -201,5 +214,6 @@ export function fromRunner(name: string, run: Runner): ProviderTextGeneration {
     generateThreadTitle,
     generateReviewGuide,
     generateTranscriptionPostProcessing,
+    generateSpokenSummary,
   } satisfies ProviderTextGeneration;
 }

@@ -173,6 +173,7 @@ import {
   GuestShareCreateResult,
 } from "./guestShare.ts";
 import { PullRequestReviewGuideResult } from "./pullRequestReviewGuide.ts";
+import { SpokenSummaryError, SpokenSummaryInput, SpokenSummaryResult } from "./spokenSummary.ts";
 import {
   PullRequestActionInput,
   PullRequestActivity,
@@ -434,6 +435,8 @@ export const WS_METHODS = {
   assetsPersistChatAttachments: "assets.persistChatAttachments",
   attachmentsCreateUploadUrl: "attachments.createUploadUrl",
   attachmentsDelete: "attachments.delete",
+
+  speechSpokenSummary: "speech.spokenSummary",
 
   mcpAppsCallTool: "mcpApps.callTool",
   mcpAppsToolInfo: "mcpApps.toolInfo",
@@ -1119,6 +1122,12 @@ const WsPullRequestsGenerateReviewGuideRpc = Rpc.make(WS_METHODS.pullRequestsGen
   payload: PullRequestRef,
   success: PullRequestReviewGuideResult,
   error: PullRequestRpcError,
+});
+
+const WsSpeechSpokenSummaryRpc = Rpc.make(WS_METHODS.speechSpokenSummary, {
+  payload: SpokenSummaryInput,
+  success: SpokenSummaryResult,
+  error: Schema.Union([SpokenSummaryError, EnvironmentAuthorizationError]),
 });
 
 const WsPullRequestsThreadCommentsRpc = Rpc.make(WS_METHODS.pullRequestsThreadComments, {
@@ -2202,6 +2211,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsAssetsPersistChatAttachmentsRpc,
   WsAttachmentsCreateUploadUrlRpc,
   WsAttachmentsDeleteRpc,
+  WsSpeechSpokenSummaryRpc,
   WsMcpAppsCallToolRpc,
   WsMcpAppsToolInfoRpc,
   WsMcpAppsReadResourceRpc,
