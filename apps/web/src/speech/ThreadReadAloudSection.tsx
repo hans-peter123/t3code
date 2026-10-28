@@ -1,13 +1,13 @@
 import { useNavigate } from "@tanstack/react-router";
-import { activeSpeechProvider } from "@t3tools/client-runtime/speech";
+import { activeSpeechProvider, type SpeechReadMode } from "@t3tools/client-runtime/speech";
+import type { ScopedThreadRef } from "@t3tools/contracts";
 import {
-  LoaderIcon,
-  PauseIcon,
   PlayIcon,
   RotateCcwIcon,
   RotateCwIcon,
   SquareIcon,
   Volume2Icon,
+  XIcon,
 } from "lucide-react";
 
 import { ThreadDetailsControl } from "../components/chat/ThreadDetailsControl";
@@ -16,20 +16,29 @@ import {
   THREAD_DETAILS_PANEL_ICON_CLASS,
   THREAD_DETAILS_PANEL_ROW_CONTENT_CLASS,
 } from "../components/chat/threadDetailsPanelStyles";
+import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { cn } from "../lib/utils";
-import { formatSpeechTime, PlaybackRateSelect, SpeechControlButton } from "./ReadAloudButton";
 import {
+  PlaybackRateSelect,
+  readMessageAloud,
+  shownSpeechMode,
+  SpeechControlButton,
+  SpeechModeToggle,
+  SpeechPlayPauseButton,
+  SpeechProgressLabel,
+} from "./ReadAloudButton";
+import {
+  currentSpeechRequest,
   SPEECH_SKIP_SECONDS,
   seekSpeech,
   stopSpeech,
-  toggleSpeechPause,
   useSpeechPlaybackState,
 } from "./speechPlayback";
 import { updateSpeechSettings, useSpeechSettings } from "./speechSettings";
 
 /** The "Read new replies" switch, which expands into a small player while a reply is read. */
-export function ThreadReadAloudSection() {
+export function ThreadReadAloudSection(props: { readonly threadRef: ScopedThreadRef }) {
   const navigate = useNavigate();
   const settings = useSpeechSettings();
   const playback = useSpeechPlaybackState();
@@ -38,6 +47,15 @@ export function ThreadReadAloudSection() {
   const ready = activeSpeechProvider(settings) !== null;
   const active = playback.phase !== "idle";
   const preparing = playback.phase === "preparing";
+  const request = currentSpeechRequest();
+  const readAs = (mode: SpeechReadMode) => {
+    if (request) readMessageAloud({ ...request, mode }, (to) => void navigate({ to }));
+  };
+  // The offer names no thread, so it shows only beside the thread whose reply was read.
+  const fullOffer =
+    playback.fullOffer &&
+    request?.threadRef?.environmentId === props.threadRef.environmentId &&
+    request.threadRef.threadId === props.threadRef.threadId;
 
   return (
     <ThreadDetailsSection
@@ -54,10 +72,11 @@ export function ThreadReadAloudSection() {
         >
           <Volume2Icon aria-hidden className={THREAD_DETAILS_PANEL_ICON_CLASS} />
           <span className="min-w-0 flex-1 truncate">Read new replies</span>
-          {active && !preparing ? (
-            <span className="shrink-0 text-2xs font-normal tabular-nums text-muted-foreground">
-              {formatSpeechTime(playback.currentTime)} / {formatSpeechTime(playback.duration)}
-            </span>
+          {active ? (
+            <SpeechProgressLabel
+              playback={playback}
+              className="shrink-0 text-2xs font-normal text-muted-foreground"
+            />
           ) : null}
           <Switch
             size="sm"
@@ -104,22 +123,7 @@ export function ThreadReadAloudSection() {
             >
               <RotateCcwIcon className="size-3" />
             </SpeechControlButton>
-            {preparing || playback.buffering ? (
-              <SpeechControlButton label="Preparing audio" disabled onClick={() => {}}>
-                <LoaderIcon className="size-3 animate-spin" />
-              </SpeechControlButton>
-            ) : (
-              <SpeechControlButton
-                label={playback.phase === "playing" ? "Pause" : "Resume"}
-                onClick={toggleSpeechPause}
-              >
-                {playback.phase === "playing" ? (
-                  <PauseIcon className="size-3" />
-                ) : (
-                  <PlayIcon className="size-3" />
-                )}
-              </SpeechControlButton>
-            )}
+            <SpeechPlayPauseButton playback={playback} />
             <SpeechControlButton
               label={`Forward ${SPEECH_SKIP_SECONDS} seconds`}
               disabled={preparing}
@@ -130,10 +134,23 @@ export function ThreadReadAloudSection() {
             <SpeechControlButton label="Stop reading" onClick={stopSpeech}>
               <SquareIcon className="size-2.5" />
             </SpeechControlButton>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-1">
+              {playback.shortAvailable ? (
+                <SpeechModeToggle mode={shownSpeechMode(playback)} onChange={readAs} />
+              ) : null}
               <PlaybackRateSelect rate={settings.playbackRate} />
             </div>
           </div>
+        </div>
+      ) : fullOffer ? (
+        <div className="flex items-center justify-between px-1.5 pt-1">
+          <Button size="xs" variant="ghost" onClick={() => readAs("full")}>
+            <PlayIcon />
+            Read full reply
+          </Button>
+          <SpeechControlButton label="Dismiss" onClick={stopSpeech}>
+            <XIcon className="size-3" />
+          </SpeechControlButton>
         </div>
       ) : null}
     </ThreadDetailsSection>

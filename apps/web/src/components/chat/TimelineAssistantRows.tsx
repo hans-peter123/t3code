@@ -203,7 +203,12 @@ function AssistantReadAloudButton({ message }: { message: ChatMessage }) {
   const ctx = use(TimelineRowCtx);
   const thread = useThreadShell(ctx.threadRef);
   return (
-    <ReadAloudButton messageId={message.id} markdown={message.text} title={thread?.title ?? ""} />
+    <ReadAloudButton
+      messageId={message.id}
+      markdown={message.text}
+      title={thread?.title ?? ""}
+      threadRef={thread && ctx.threadRef ? ctx.threadRef : null}
+    />
   );
 }
 

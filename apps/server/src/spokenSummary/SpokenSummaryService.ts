@@ -50,7 +50,7 @@ export class SpokenSummaryKey implements Equal.Equal {
       request.context.pending,
       // A run can be stopped or fail after its last message without changing that message.
       request.context.latestRunOutcome,
-      // Checkpoints land after the run ends, so a summary asked for right away has no files yet.
+      // A stopped run settles before its checkpoint lands, so an early summary has no files yet.
       request.context.changedFiles,
       request.context.omittedChangedFiles,
       request.modelSelection,

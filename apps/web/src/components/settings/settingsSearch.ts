@@ -1141,6 +1141,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["text to speech tts read aloud voice openai elevenlabs speak listen"],
   },
   {
+    id: "voice-read-mode",
+    title: "Read replies as",
+    to: "/settings/voice",
+    searchTerms: ["read aloud short version full message summary spoken default"],
+  },
+  {
     id: "voice-playback-speed",
     title: "Playback speed",
     to: "/settings/voice",

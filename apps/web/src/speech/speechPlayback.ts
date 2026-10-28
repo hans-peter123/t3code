@@ -3,6 +3,9 @@ import {
   type SpeechProviderConfig,
   encodeWav,
   locateSpeechTime,
+  resolveSpokenText,
+  type SpeechReadMode,
+  type SpokenText,
   pcmDuration,
   planMessageSpeech,
   speechCacheKeySource,
@@ -11,6 +14,7 @@ import {
   speechTimelineDuration,
   synthesizeSpeechParts,
 } from "@t3tools/client-runtime/speech";
+import type { ScopedThreadRef } from "@t3tools/contracts";
 import { useSyncExternalStore } from "react";
 
 import { loadSpeechSettings } from "./speechSettings";
@@ -22,6 +26,14 @@ export type SpeechPhase = "idle" | "preparing" | "playing" | "paused";
 
 export interface SpeechPlaybackState {
   readonly messageId: string | null;
+  /** What is read: the spoken summary or the whole reply. */
+  readonly mode: SpeechReadMode;
+  /** The message has a server thread, so it can switch to its short version. */
+  readonly shortAvailable: boolean;
+  /** A short version just finished; the player offers the full reply. */
+  readonly fullOffer: boolean;
+  /** The server is writing the short version, which can take far longer than synthesis. */
+  readonly writingShort: boolean;
   readonly phase: SpeechPhase;
   /** Seconds into the whole message. */
   readonly currentTime: number;
@@ -43,13 +55,32 @@ interface SpeechPart {
   readonly duration: number;
 }
 
+export interface SpeechRequest {
+  readonly messageId: string;
+  readonly markdown: string;
+  readonly title: string;
+  /** Defaults to the full reply. */
+  readonly mode?: SpeechReadMode;
+  /** The server thread the reply belongs to, so a player can tell which thread it reads. */
+  readonly threadRef?: ScopedThreadRef;
+  /** Writes the short version; absent for replies without a server thread. */
+  readonly loadSummary?: () => Promise<string>;
+  /**
+   * The short version could not be written, so the full reply plays instead. `chosen` is set when
+   * the reader switched this playback to Short, so the failure answers their own request.
+   */
+  readonly onShortUnavailable?: (error: unknown, chosen: boolean) => void;
+  /** Plays with this provider instead of the one chosen for read aloud, e.g. a voice sample. */
+  readonly provider?: SpeechProviderConfig;
+}
+
 /** One message being read: a playlist of parts that grows while they are synthesized. */
 interface Session {
   readonly messageId: string;
   readonly controller: AbortController;
   readonly parts: SpeechPart[];
   /** Part URLs this session created; a cached whole message belongs to the cache instead. */
-  readonly ownsUrls: boolean;
+  ownsUrls: boolean;
   /** No more parts will arrive. */
   done: boolean;
   /** The part in the audio element, or the one playback waits for. */
@@ -61,6 +92,10 @@ interface Session {
 
 const IDLE: SpeechPlaybackState = {
   messageId: null,
+  mode: "full",
+  shortAvailable: false,
+  fullOffer: false,
+  writingShort: false,
   phase: "idle",
   currentTime: 0,
   duration: 0,
@@ -70,6 +105,9 @@ const IDLE: SpeechPlaybackState = {
 let state = IDLE;
 let audio: HTMLAudioElement | null = null;
 let session: Session | null = null;
+let lastRequest: SpeechRequest | null = null;
+// A switch to Short while the full reply keeps playing; cleared to cancel it.
+let pendingShort: object | null = null;
 let playbackRate = 1;
 // Recently spoken messages as one WAV each, so replaying one does not call the provider again.
 const cache = new Map<string, SpeechPart>();
@@ -151,7 +189,7 @@ function goTo(time: number, play: boolean) {
     return;
   }
   if (current.done) {
-    stopSpeech();
+    finishSpeech();
     return;
   }
   // Past the synthesized audio: wait for the next part, which plays from its start.
@@ -170,8 +208,8 @@ function goTo(time: number, play: boolean) {
 
 function onPartReady(current: Session) {
   if (state.phase === "preparing") {
-    setState({ ...state, phase: "playing" });
-    loadPart(current, 0, 0, true);
+    setState({ ...state, phase: current.resume ? "playing" : "paused" });
+    loadPart(current, 0, 0, current.resume);
   } else if (current.waiting && current.index === current.parts.length - 1) {
     loadPart(current, current.index, 0, current.resume);
   } else {
@@ -235,21 +273,58 @@ function wavUrl(wav: Uint8Array): string {
 }
 
 /**
- * Starts reading a message, or toggles pause when that message is already loaded. Playback starts
+ * Starts reading a message, or toggles pause when it already plays in that mode. Playback starts
  * with the first part while later parts are synthesized one request at a time; the promise settles
  * once every part is ready.
  */
-export async function speakMessage(input: {
-  readonly messageId: string;
-  readonly markdown: string;
-  readonly title: string;
-  /** Plays with this provider instead of the one chosen for read aloud, e.g. a voice sample. */
-  readonly provider?: SpeechProviderConfig;
-}): Promise<void> {
-  if (state.messageId === input.messageId) {
+export async function speakMessage(input: SpeechRequest): Promise<void> {
+  const requestedMode = input.loadSummary ? (input.mode ?? "full") : "full";
+  const loaded = state.phase !== "idle" && state.messageId === input.messageId;
+  if (loaded && pendingShort !== null) {
+    if (requestedMode === "full") {
+      pendingShort = null;
+      setState({ ...state, writingShort: false });
+    }
+    return;
+  }
+  if (loaded && state.mode === requestedMode) {
     toggleSpeechPause();
     return;
   }
+  if (loaded && requestedMode === "short" && state.phase !== "preparing") {
+    return switchToShort(input);
+  }
+  return startReading(input, requestedMode, null, loaded);
+}
+
+/** Keeps the full reply playing until the short version is ready, so a failure loses nothing. */
+async function switchToShort(input: SpeechRequest): Promise<void> {
+  const token = {};
+  pendingShort = token;
+  setState({ ...state, writingShort: true });
+  const spoken = await resolveSpokenText({
+    mode: "short",
+    fullText: input.markdown,
+    loadSummary: input.loadSummary ?? null,
+  });
+  if (pendingShort !== token) return;
+  pendingShort = null;
+  if (spoken.shortUnavailable === undefined) {
+    // A reader who paused while it was written gets the short version paused, not out loud.
+    const paused = state.phase === "paused" || (session?.waiting === true && !session.resume);
+    return startReading(input, "short", spoken, true, !paused);
+  }
+  setState({ ...state, writingShort: false, shortAvailable: false });
+  input.onShortUnavailable?.(spoken.shortUnavailable, true);
+}
+
+async function startReading(
+  input: SpeechRequest,
+  requestedMode: SpeechReadMode,
+  resolved: SpokenText | null,
+  chosen: boolean,
+  play = true,
+): Promise<void> {
   stopSpeech();
   const settings = await loadSpeechSettings();
   const provider = input.provider ?? activeSpeechProvider(settings);
@@ -261,28 +336,55 @@ export async function speakMessage(input: {
   stopSpeech();
 
   playbackRate = settings.playbackRate;
-  const key = speechCacheKeySource(provider, input.markdown);
-  const cached = cache.get(key);
   const current: Session = {
     messageId: input.messageId,
     controller: new AbortController(),
-    parts: cached ? [cached] : [],
-    ownsUrls: !cached,
-    done: Boolean(cached),
+    parts: [],
+    ownsUrls: true,
+    done: false,
     index: 0,
     waiting: false,
-    resume: true,
+    resume: play,
   };
   session = current;
-  setState({ ...IDLE, messageId: input.messageId, phase: "preparing" });
+  lastRequest = input;
+  setState({
+    ...IDLE,
+    messageId: input.messageId,
+    mode: requestedMode,
+    shortAvailable: Boolean(input.loadSummary),
+    writingShort: resolved === null && requestedMode === "short",
+    phase: "preparing",
+  });
   claimMediaSession(input.title);
+
+  const spoken =
+    resolved ??
+    (await resolveSpokenText({
+      mode: requestedMode,
+      fullText: input.markdown,
+      loadSummary: input.loadSummary ?? null,
+    }));
+  if (session !== current) return;
+  if (state.writingShort) setState({ ...state, writingShort: false });
+  if (spoken.shortUnavailable !== undefined) {
+    // Offering Short again would only repeat the failed request.
+    setState({ ...state, mode: "full", shortAvailable: false });
+    input.onShortUnavailable?.(spoken.shortUnavailable, chosen);
+  }
+
+  const key = `${spoken.mode}:${speechCacheKeySource(provider, spoken.text)}`;
+  const cached = cache.get(key);
   if (cached) {
+    current.parts.push(cached);
+    current.ownsUrls = false;
+    current.done = true;
     onPartReady(current);
     return;
   }
 
   try {
-    const pieces = await synthesizeSpeechParts(provider, planMessageSpeech(input.markdown), {
+    const pieces = await synthesizeSpeechParts(provider, planMessageSpeech(spoken.text), {
       signal: current.controller.signal,
       onPart: (piece) => {
         if (session !== current) return;
@@ -296,7 +398,7 @@ export async function speakMessage(input: {
       url: wavUrl(encodeWav(pieces)),
       duration: speechTimelineDuration(durations(current)),
     });
-    if (current.waiting) stopSpeech();
+    if (current.waiting) finishSpeech();
   } catch (error) {
     if (session !== current || current.controller.signal.aborted) return;
     // Keep playing what arrived; the message ends early.
@@ -329,10 +431,33 @@ export function setSpeechPlaybackRate(rate: number) {
   }
 }
 
+/** The request being read or last read, so a player can replay it in the other mode. */
+export function currentSpeechRequest(): SpeechRequest | null {
+  return lastRequest;
+}
+
+/** Ends playback at the end of the audio; a short version then offers the full reply. */
+function finishSpeech() {
+  const ended = state;
+  stopSpeech();
+  if (ended.mode !== "short") return;
+  setState({
+    ...IDLE,
+    messageId: ended.messageId,
+    mode: "short",
+    shortAvailable: true,
+    fullOffer: true,
+  });
+}
+
 export function stopSpeech() {
   const current = session;
-  if (!current) return;
+  if (!current) {
+    if (state.fullOffer) setState(IDLE);
+    return;
+  }
   session = null;
+  pendingShort = null;
   current.controller.abort();
   setState(IDLE);
   if (audio) {
