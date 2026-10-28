@@ -13,6 +13,7 @@ import {
   withSpeechProviderRemoved,
   type SpeechProviderConfig,
   type SpeechProviderKind,
+  type SpeechReadMode,
   type SpeechVoice,
 } from "@t3tools/client-runtime/speech";
 import { useState } from "react";
@@ -28,6 +29,10 @@ import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settingsL
 import { searchableSetting } from "./settingsSearch";
 
 const OFF = "off";
+const READ_MODE_LABELS: Record<SpeechReadMode, string> = {
+  short: "Short version",
+  full: "Full message",
+};
 const SAMPLE_TEXT = "Hi! This is how T3 Code reads your messages aloud.";
 
 function providerLabel(provider: SpeechProviderConfig): string {
@@ -310,6 +315,31 @@ export function VoiceSettingsPanel() {
                 void updateSpeechSettings((current) => ({ ...current, activeProviderId }))
               }
             />
+          }
+        />
+        <SettingsRow
+          {...searchableSetting("voice-read-mode")}
+          description="The short version is spoken from the whole thread: where things stand, what was decided, and what needs you."
+          control={
+            <Select
+              value={settings.readMode}
+              onValueChange={(value) => {
+                if (value === "short" || value === "full") {
+                  void updateSpeechSettings((current) => ({ ...current, readMode: value }));
+                }
+              }}
+            >
+              <SelectTrigger size="sm" className="w-full sm:w-56" aria-label="Read replies as">
+                <SelectValue>{READ_MODE_LABELS[settings.readMode]}</SelectValue>
+              </SelectTrigger>
+              <SelectPopup align="end" alignItemWithTrigger={false}>
+                {(Object.keys(READ_MODE_LABELS) as SpeechReadMode[]).map((mode) => (
+                  <SelectItem key={mode} hideIndicator value={mode}>
+                    {READ_MODE_LABELS[mode]}
+                  </SelectItem>
+                ))}
+              </SelectPopup>
+            </Select>
           }
         />
         <SettingsRow

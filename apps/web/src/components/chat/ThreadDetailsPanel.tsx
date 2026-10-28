@@ -259,7 +259,9 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                 />
               ) : null}
 
-              {density === "full" && !props.draftId ? <ThreadReadAloudSection /> : null}
+              {density === "full" && !props.draftId ? (
+                <ThreadReadAloudSection threadRef={activeThreadRef} />
+              ) : null}
 
               {visible.usage ? <ThreadDetailsUsage {...props.usage} /> : null}
 
