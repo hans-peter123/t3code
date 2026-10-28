@@ -1575,6 +1575,7 @@ export default function ChatView(props: ChatViewProps) {
     settled: latestRunSettled,
     messages: timelineMessages,
     title: activeThread?.title ?? "",
+    serverThread: isServerThread,
   });
   const displayedTimelineKey = activeThreadKey ?? routeThreadKey;
   const displayedThreadRef = parseScopedThreadKey(displayedTimelineKey);

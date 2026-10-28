@@ -63,3 +63,4 @@ export {
   type HandsFreeState,
   type HandsFreeStep,
 } from "./handsFree.ts";
+export { resolveSpokenText, type SpokenText } from "./readMode.ts";
