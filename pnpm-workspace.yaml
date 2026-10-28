@@ -225,6 +225,7 @@ patchedDependencies:
   mdast-util-to-hast@13.2.1: patches/mdast-util-to-hast@13.2.1.patch
   expo-audio@58.0.9: patches/expo-audio@58.0.9.patch
   expo-video@58.0.11: patches/expo-video@58.0.11.patch
+  expo-observe@58.0.16: patches/expo-observe@58.0.16.patch
   expo-network@58.0.3: patches/expo-network@58.0.3.patch
   "@clerk/expo-native-components@0.4.0": patches/@clerk__expo-native-components@0.4.0.patch
   "@alchemy.run/test@2.0.0-beta.85": patches/@alchemy.run__test@2.0.0-beta.85.patch
