@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   HANDS_FREE_COPY,
   PLAYBACK_RATES,
+  shownSpeechMode,
   type SpeechReadMode,
 } from "@t3tools/client-runtime/speech";
 import type { MessageId, ScopedThreadRef } from "@t3tools/contracts";
@@ -104,11 +105,6 @@ export function PlaybackRateSelect(props: { readonly rate: number }) {
 }
 
 const WRITING_SHORT_LABEL = "Writing short version";
-
-/** While a switch to Short is written, the toggle already shows the version on its way. */
-export function shownSpeechMode(playback: SpeechPlaybackState): SpeechReadMode {
-  return playback.writingShort ? "short" : playback.mode;
-}
 
 /** Position in the reply; while Short is written, the label replaces it only when nothing plays. */
 export function SpeechProgressLabel(props: {

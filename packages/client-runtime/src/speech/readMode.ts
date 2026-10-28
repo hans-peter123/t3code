@@ -26,3 +26,44 @@ export async function resolveSpokenText(input: {
     return { ...full, shortUnavailable: error };
   }
 }
+
+/** The mode a request plays in: Short needs a summary source, so without one it is Full. */
+export function requestedReadMode(mode: SpeechReadMode | undefined, canSummarize: boolean) {
+  return canSummarize ? (mode ?? "full") : "full";
+}
+
+export type SpeakDecision =
+  /** Full was asked while a switch to Short is written: keep the full reply, drop the switch. */
+  | "cancelShortSwitch"
+  /** The same request again while Short is written: nothing to do. */
+  | "ignore"
+  | "togglePause"
+  /** Keep the full reply playing until the short version is ready, so a failure loses nothing. */
+  | "switchToShort"
+  /** Restart the message in the requested mode. */
+  | "start";
+
+/** What a read aloud press does, given what plays now. */
+export function decideSpeak(input: {
+  /** The message is the one loaded in the player, in any phase but idle. */
+  readonly loaded: boolean;
+  readonly preparing: boolean;
+  readonly switchingToShort: boolean;
+  readonly currentMode: SpeechReadMode;
+  readonly requestedMode: SpeechReadMode;
+}): SpeakDecision {
+  if (!input.loaded) return "start";
+  if (input.switchingToShort)
+    return input.requestedMode === "full" ? "cancelShortSwitch" : "ignore";
+  if (input.currentMode === input.requestedMode) return "togglePause";
+  if (input.requestedMode === "short" && !input.preparing) return "switchToShort";
+  return "start";
+}
+
+/** While a switch to Short is written, a toggle already shows the version on its way. */
+export function shownSpeechMode(playback: {
+  readonly mode: SpeechReadMode;
+  readonly writingShort: boolean;
+}): SpeechReadMode {
+  return playback.writingShort ? "short" : playback.mode;
+}

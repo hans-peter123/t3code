@@ -39,6 +39,18 @@ describe("read mode", () => {
   });
 });
 
+describe("dictation language", () => {
+  it("follows the thread by default and keeps only locale tags", () => {
+    const language = (value: unknown) =>
+      sanitizeSpeechSettings({ dictationLanguage: value }).dictationLanguage;
+    expect(language(undefined)).toBeNull();
+    expect(language("de-DE")).toBe("de-DE");
+    expect(language("zh_Hant_TW")).toBe("zh_Hant_TW");
+    expect(language("German")).toBeNull();
+    expect(language(7)).toBeNull();
+  });
+});
+
 describe("providers", () => {
   it("keeps a picked voice's name and drops anything that is not text", () => {
     const voiceName = (value: unknown) =>

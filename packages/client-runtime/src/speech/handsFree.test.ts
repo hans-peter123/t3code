@@ -11,6 +11,7 @@ import {
 
 const start: HandsFreeEvent = {
   type: "start",
+  environmentId: "e1",
   threadId: "t1",
   readMode: "short",
   agentWorking: false,
@@ -19,6 +20,7 @@ const working: HandsFreeEvent = { ...start, agentWorking: true };
 const reply = (messageId: string | null, agentWorking = false, turnId = `turn-${messageId}`) =>
   ({
     type: "turnFinished",
+    environmentId: "e1",
     threadId: "t1",
     title: "Fix login",
     turnId,
@@ -27,13 +29,19 @@ const reply = (messageId: string | null, agentWorking = false, turnId = `turn-${
   }) satisfies HandsFreeEvent;
 const otherDone: HandsFreeEvent = {
   type: "turnFinished",
+  environmentId: "e1",
   threadId: "t2",
   title: "Docs",
   turnId: "x",
   messageId: "x",
   agentWorking: false,
 };
-const approval: HandsFreeEvent = { type: "approvalRequested", requestId: "r1", title: "Docs" };
+const approval: HandsFreeEvent = {
+  type: "approvalRequested",
+  environmentId: "e1",
+  requestId: "r1",
+  title: "Docs",
+};
 
 /** Folds events from off; returns the final state and the effects of the last event. */
 function run(events: readonly HandsFreeEvent[], from: HandsFreeState = HANDS_FREE_OFF) {
@@ -95,7 +103,16 @@ describe("hands-free loop", () => {
       name: "a transcript is sent",
       events: sending,
       phase: "sending",
-      effects: [{ type: "send", id: 2, draftId: "d1", threadId: "t1", text: "Add a test" }],
+      effects: [
+        {
+          type: "send",
+          id: 2,
+          draftId: "d1",
+          environmentId: "e1",
+          threadId: "t1",
+          text: "Add a test",
+        },
+      ],
     },
     {
       name: "a sent message waits for the agent",
@@ -107,7 +124,16 @@ describe("hands-free loop", () => {
       name: "a reply in the thread is read in the read mode",
       events: speakingReply,
       phase: "speaking",
-      effects: [{ type: "speakReply", id: 1, threadId: "t1", messageId: "m1", mode: "short" }],
+      effects: [
+        {
+          type: "speakReply",
+          id: 1,
+          environmentId: "e1",
+          threadId: "t1",
+          messageId: "m1",
+          mode: "short",
+        },
+      ],
     },
     {
       name: "a reply read to the end leads to listening",
@@ -133,7 +159,14 @@ describe("hands-free loop", () => {
       phase: "speaking",
       effects: [
         { type: "notify", message: HANDS_FREE_COPY.shortUnavailable },
-        { type: "speakReply", id: 2, threadId: "t1", messageId: "m1", mode: "full" },
+        {
+          type: "speakReply",
+          id: 2,
+          environmentId: "e1",
+          threadId: "t1",
+          messageId: "m1",
+          mode: "full",
+        },
       ],
     },
     {
@@ -183,7 +216,16 @@ describe("hands-free loop", () => {
       name: "Done after a failed send resends the same draft",
       events: [...unsent, { type: "done" }],
       phase: "sending",
-      effects: [{ type: "send", id: 4, draftId: "d1", threadId: "t1", text: "Add a test" }],
+      effects: [
+        {
+          type: "send",
+          id: 4,
+          draftId: "d1",
+          environmentId: "e1",
+          threadId: "t1",
+          text: "Add a test",
+        },
+      ],
     },
     {
       name: "Done during the failed send notice resends at once",
@@ -191,14 +233,30 @@ describe("hands-free loop", () => {
       phase: "sending",
       effects: [
         { type: "stopAudio" },
-        { type: "send", id: 4, draftId: "d1", threadId: "t1", text: "Add a test" },
+        {
+          type: "send",
+          id: 4,
+          draftId: "d1",
+          environmentId: "e1",
+          threadId: "t1",
+          text: "Add a test",
+        },
       ],
     },
     {
       name: "talk after a failed send resends it",
       events: [...unsent, { type: "talk" }],
       phase: "sending",
-      effects: [{ type: "send", id: 4, draftId: "d1", threadId: "t1", text: "Add a test" }],
+      effects: [
+        {
+          type: "send",
+          id: 4,
+          draftId: "d1",
+          environmentId: "e1",
+          threadId: "t1",
+          text: "Add a test",
+        },
+      ],
     },
     {
       name: "talk during the failed send notice resends at once",
@@ -206,7 +264,14 @@ describe("hands-free loop", () => {
       phase: "sending",
       effects: [
         { type: "stopAudio" },
-        { type: "send", id: 4, draftId: "d1", threadId: "t1", text: "Add a test" },
+        {
+          type: "send",
+          id: 4,
+          draftId: "d1",
+          environmentId: "e1",
+          threadId: "t1",
+          text: "Add a test",
+        },
       ],
     },
     {
@@ -225,7 +290,16 @@ describe("hands-free loop", () => {
         { type: "transcribed", id: 4, text: "Add two tests", draftId: "d2" },
       ],
       phase: "sending",
-      effects: [{ type: "send", id: 5, draftId: "d2", threadId: "t1", text: "Add two tests" }],
+      effects: [
+        {
+          type: "send",
+          id: 5,
+          draftId: "d2",
+          environmentId: "e1",
+          threadId: "t1",
+          text: "Add two tests",
+        },
+      ],
     },
     {
       name: "an approval while a failed send is held is announced",
@@ -383,7 +457,14 @@ describe("hands-free races", () => {
       held.state,
     );
     expect(after.effects).toEqual([
-      { type: "speakReply", id: 3, threadId: "t1", messageId: "m1", mode: "short" },
+      {
+        type: "speakReply",
+        id: 3,
+        environmentId: "e1",
+        threadId: "t1",
+        messageId: "m1",
+        mode: "short",
+      },
     ]);
     const read = run([{ type: "speechEnded", id: 3 }], after.state);
     expect(read.state.phase.kind).toBe("waiting");
@@ -418,7 +499,14 @@ describe("hands-free races", () => {
       { type: "sent", id: 4, agentWorking: false },
     ]);
     expect(effects).toEqual([
-      { type: "speakReply", id: 5, threadId: "t1", messageId: "m2", mode: "short" },
+      {
+        type: "speakReply",
+        id: 5,
+        environmentId: "e1",
+        threadId: "t1",
+        messageId: "m2",
+        mode: "short",
+      },
     ]);
     const read = run([{ type: "speechEnded", id: 5 }], state);
     expect(read.effects).toEqual([{ type: "speak", id: 6, text: HANDS_FREE_COPY.noReply }]);
@@ -433,7 +521,14 @@ describe("hands-free races", () => {
       { type: "sent", id: 2, agentWorking: false },
     ]);
     expect(effects).toEqual([
-      { type: "speakReply", id: 3, threadId: "t1", messageId: "mB", mode: "short" },
+      {
+        type: "speakReply",
+        id: 3,
+        environmentId: "e1",
+        threadId: "t1",
+        messageId: "mB",
+        mode: "short",
+      },
     ]);
     const after = run([{ type: "speechEnded", id: 3 }], state);
     expect(after.effects).toEqual([{ type: "playTone", id: 4 }]);
@@ -458,14 +553,28 @@ describe("hands-free races", () => {
     expect(announced.effects).toEqual([{ type: "speak", id: 3, text: "Docs is done" }]);
     const read = run([{ type: "speechEnded", id: 3 }], announced.state);
     expect(read.effects).toEqual([
-      { type: "speakReply", id: 4, threadId: "t1", messageId: "m1", mode: "short" },
+      {
+        type: "speakReply",
+        id: 4,
+        environmentId: "e1",
+        threadId: "t1",
+        messageId: "m1",
+        mode: "short",
+      },
     ]);
   });
 
   it("reads a reply that finishes while another is being read next, instead of listening", () => {
     const { effects } = run([...speakingReply, reply("m2"), { type: "speechEnded", id: 1 }]);
     expect(effects).toEqual([
-      { type: "speakReply", id: 2, threadId: "t1", messageId: "m2", mode: "short" },
+      {
+        type: "speakReply",
+        id: 2,
+        environmentId: "e1",
+        threadId: "t1",
+        messageId: "m2",
+        mode: "short",
+      },
     ]);
   });
 
@@ -488,6 +597,26 @@ describe("hands-free races", () => {
       state,
     );
     expect(effects).toEqual([]);
+  });
+
+  it("tells apart threads and approvals with the same id in another environment", () => {
+    const elsewhere = { environmentId: "e2", title: "Docs" } as const;
+    const { state } = run([
+      working,
+      { ...reply("m1"), ...elsewhere, turnId: "x" },
+      { ...otherDone, environmentId: "e2" },
+      { ...approval, environmentId: "e2" },
+    ]);
+    expect(state.phase).toEqual({
+      kind: "speaking",
+      id: 1,
+      speech: { kind: "notice", text: "Docs is done" },
+      then: "wait",
+    });
+    expect(state.announcements).toEqual(["Docs is done", "Docs needs approval"]);
+    expect(run([reply("m1", false, "x"), approval], state).state.pending).toEqual([
+      { kind: "reply", messageId: "m1", mode: "short" },
+    ]);
   });
 
   it("tells about a turn without a reply after an announcement made while waiting", () => {

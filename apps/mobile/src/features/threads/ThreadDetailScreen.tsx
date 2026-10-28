@@ -1588,6 +1588,14 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                         connectionState={props.connectionStateLabel}
                         environmentLabel={props.environmentLabel}
                         selectedThread={props.selectedThread}
+                        dictation={{
+                          userMessages: () =>
+                            selectedThreadFeed.flatMap((entry) =>
+                              entry.type === "message" && entry.message.role === "user"
+                                ? [entry.message.text]
+                                : [],
+                            ),
+                        }}
                         hasCompactableConversation={
                           hasCompactableConversation && !props.isCompacting
                         }

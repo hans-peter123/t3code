@@ -1,5 +1,7 @@
 import AVFoundation
 import ExpoModulesCore
+import NaturalLanguage
+import Speech
 
 /// iOS hands a recording that starts in the background only silence, so hands-free mode starts one
 /// microphone input in the foreground, keeps it running, and saves only the spans it asks for.
@@ -125,6 +127,40 @@ final class T3VoiceCapture {
   }
 }
 
+/// Picks the language dictation listens for: the thread's language and the locales Apple's
+/// on-device recognizer offers.
+enum T3DictationLanguage {
+  /// The dominant language of the text as a BCP 47 tag, or nil when it is unclear.
+  static func detect(_ text: String) -> String? {
+    let recognizer = NLLanguageRecognizer()
+    recognizer.processString(text)
+    guard let language = recognizer.dominantLanguage, language != .undetermined else { return nil }
+    let confidence = recognizer.languageHypotheses(withMaximum: 1)[language] ?? 0
+    return confidence >= 0.5 ? language.rawValue : nil
+  }
+
+  /// On-device recognizer locales, or `fallback` where there is no on-device recognizer, named
+  /// in the device language.
+  static func locales(fallback: [String]) async -> [[String: String]] {
+    var identifiers = fallback
+    if #available(iOS 26, *) {
+      let supported = await SpeechTranscriber.supportedLocales
+      if !supported.isEmpty {
+        identifiers = supported.map { $0.identifier(.bcp47) }
+      }
+    }
+    return identifiers.map { identifier in
+      ["id": identifier, "name": Locale.current.localizedString(forIdentifier: identifier) ?? identifier]
+    }
+  }
+
+  /// Locales whose on-device model is already on the phone, so preparing one starts no download.
+  static func installedLocales() async -> [String] {
+    guard #available(iOS 26, *) else { return [] }
+    return await SpeechTranscriber.installedLocales.map { $0.identifier(.bcp47) }
+  }
+}
+
 public class T3VoiceCaptureModule: Module {
   private let capture = T3VoiceCapture()
 
@@ -149,6 +185,18 @@ public class T3VoiceCaptureModule: Module {
 
     AsyncFunction("stop") {
       self.capture.stop()
+    }
+
+    Function("detectLanguage") { (text: String) -> String? in
+      T3DictationLanguage.detect(text)
+    }
+
+    AsyncFunction("dictationLocales") { (fallback: [String]) async -> [[String: String]] in
+      await T3DictationLanguage.locales(fallback: fallback)
+    }
+
+    AsyncFunction("installedDictationLocales") { () async -> [String] in
+      await T3DictationLanguage.installedLocales()
     }
   }
 }

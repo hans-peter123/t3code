@@ -1,5 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
-import { activeSpeechProvider, type SpeechReadMode } from "@t3tools/client-runtime/speech";
+import {
+  activeSpeechProvider,
+  shownSpeechMode,
+  type SpeechReadMode,
+} from "@t3tools/client-runtime/speech";
 import type { ScopedThreadRef } from "@t3tools/contracts";
 import {
   PlayIcon,
@@ -22,7 +26,6 @@ import { cn } from "../lib/utils";
 import {
   PlaybackRateSelect,
   readMessageAloud,
-  shownSpeechMode,
   SpeechControlButton,
   SpeechModeToggle,
   SpeechPlayPauseButton,

@@ -1,5 +1,6 @@
 // @effect-diagnostics globalFetch:off - shared by React Native and the web, which call plain fetch.
 // @effect-diagnostics globalDate:off - Retry-After dates are compared with the wall clock.
+import { localeLanguage } from "./language.ts";
 import type { SpeechProviderConfig } from "./settings.ts";
 import { markdownToSpeechText } from "./text.ts";
 import { encodeWav, parseWav, type PcmAudio } from "./wav.ts";
@@ -171,33 +172,55 @@ export function speechCacheKeySource(provider: SpeechProviderConfig, markdown: s
  * Uploads a recording to the provider's speech-to-text endpoint and returns the text.
  * `file` is a Blob on the web; React Native passes its `{ uri, name, type }` file shape.
  */
+// Apple names these languages differently from Whisper's ISO 639-1 list.
+const TRANSCRIPTION_LANGUAGE_ALIASES: Readonly<Record<string, string>> = {
+  nb: "no",
+  nn: "no",
+  fil: "tl",
+};
+
+/**
+ * `language` is a locale or language tag; providers get its ISO 639-1 language. A provider that
+ * rejects the language is asked once more without it, so it detects the language itself.
+ */
 export async function transcribeAudio(
   provider: SpeechProviderConfig,
   file: Blob,
   fileName: string,
   signal: AbortSignal,
+  language?: string | null,
 ): Promise<string> {
-  const form = new FormData();
-  form.append("file", file, fileName);
+  const base = language ? localeLanguage(language) : null;
+  const languageCode = base ? (TRANSCRIPTION_LANGUAGE_ALIASES[base] ?? base) : null;
   const apiKey = provider.apiKey.trim();
-  let url: string;
-  let headers: Record<string, string>;
-  if (provider.kind === "elevenlabs") {
-    url = `${ELEVENLABS_BASE_URL}/speech-to-text`;
-    headers = { "xi-api-key": apiKey };
-    form.append("model_id", provider.transcriptionModel.trim());
-  } else {
-    const base =
-      provider.kind === "openai-compatible" ? trimSlash(provider.baseUrl) : OPENAI_BASE_URL;
-    url = `${base}/audio/transcriptions`;
-    headers = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
-    form.append("model", provider.transcriptionModel.trim());
-    form.append("response_format", "json");
+  const elevenLabs = provider.kind === "elevenlabs";
+  const url = elevenLabs
+    ? `${ELEVENLABS_BASE_URL}/speech-to-text`
+    : `${provider.kind === "openai-compatible" ? trimSlash(provider.baseUrl) : OPENAI_BASE_URL}/audio/transcriptions`;
+  const headers: Record<string, string> = elevenLabs
+    ? { "xi-api-key": apiKey }
+    : apiKey
+      ? { Authorization: `Bearer ${apiKey}` }
+      : {};
+  const request = (code: string | null) => {
+    const form = new FormData();
+    form.append("file", file, fileName);
+    if (elevenLabs) {
+      form.append("model_id", provider.transcriptionModel.trim());
+      if (code) form.append("language_code", code);
+    } else {
+      form.append("model", provider.transcriptionModel.trim());
+      form.append("response_format", "json");
+      if (code) form.append("language", code);
+    }
+    return speechFetch(url, { method: "POST", headers, body: form, signal });
+  };
+  let response = await request(languageCode);
+  if (languageCode && (response.status === 400 || response.status === 422)) {
+    response = await request(null);
   }
-  const response = await speechFetch(url, { method: "POST", headers, body: form, signal });
   if (!response.ok) {
-    const error = await responseError(response, `Transcription at ${new URL(url).host}`);
-    throw error;
+    throw await responseError(response, `Transcription at ${new URL(url).host}`);
   }
   const body = (await response.json()) as { text?: unknown };
   return typeof body.text === "string" ? body.text.trim() : "";

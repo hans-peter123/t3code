@@ -33,17 +33,41 @@ function getNativeErrorCode(error: unknown): string | undefined {
   return typeof error.code === "string" ? error.code : undefined;
 }
 
-export function getLocalVoiceTranscriber(): VoiceTranscriber | null {
-  const locale = getDeviceLocale();
-  if (!AppleTranscription.isAvailable(locale)) return null;
-  return { prepare: (options) => prepareVoiceTranscription(locale, options) };
+/**
+ * `resolveLocales` lists the locales to listen for, best first; availability does not depend on
+ * them. A locale the recognizer cannot serve gives way to the next one.
+ */
+export function getLocalVoiceTranscriber(
+  resolveLocales: () => Promise<readonly string[]>,
+): VoiceTranscriber | null {
+  if (!AppleTranscription.isAvailable(getDeviceLocale())) return null;
+  return { prepare: (options) => prepareVoiceTranscription(resolveLocales, options) };
 }
 
 async function prepareVoiceTranscription(
-  locale: string,
+  resolveLocales: () => Promise<readonly string[]>,
   { signal }: VoiceTranscriptionOptions,
 ): Promise<PreparedVoiceTranscription> {
   throwIfVoiceTranscriptionAborted(signal);
+  const resolved = await resolveLocales().catch(() => []);
+  throwIfVoiceTranscriptionAborted(signal);
+  const locales = resolved.length > 0 ? resolved : [getDeviceLocale()];
+  let failure: unknown;
+  for (const locale of locales) {
+    try {
+      return await prepareLocale(locale, signal);
+    } catch (error) {
+      throwIfVoiceTranscriptionAborted(signal);
+      failure = error;
+    }
+  }
+  throw failure;
+}
+
+async function prepareLocale(
+  locale: string,
+  signal: AbortSignal,
+): Promise<PreparedVoiceTranscription> {
   if (!AppleTranscription.isAvailable(locale)) {
     throw new VoiceTranscriptionError(
       "unavailable",

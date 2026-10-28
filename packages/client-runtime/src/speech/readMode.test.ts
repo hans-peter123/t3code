@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { resolveSpokenText } from "./readMode.ts";
+import {
+  decideSpeak,
+  requestedReadMode,
+  resolveSpokenText,
+  type SpeakDecision,
+} from "./readMode.ts";
 
 const failing = () => Promise.reject(new Error("provider unavailable"));
 
@@ -52,5 +57,45 @@ describe("resolveSpokenText", () => {
     });
     expect(empty.mode).toBe("full");
     expect(empty.shortUnavailable).toBeInstanceOf(Error);
+  });
+});
+
+describe("decideSpeak", () => {
+  const base = {
+    loaded: true,
+    preparing: false,
+    switchingToShort: false,
+    currentMode: "full",
+    requestedMode: "full",
+  } as const;
+
+  it.each<[string, Partial<Parameters<typeof decideSpeak>[0]>, SpeakDecision]>([
+    ["starts a message that is not loaded", { loaded: false }, "start"],
+    ["toggles pause for the same mode", {}, "togglePause"],
+    ["switches to Short while the full reply plays", { requestedMode: "short" }, "switchToShort"],
+    ["restarts in Full while Short plays", { currentMode: "short" }, "start"],
+    [
+      "restarts a message still preparing in the other mode",
+      { preparing: true, requestedMode: "short" },
+      "start",
+    ],
+    [
+      "cancels a switch to Short when Full is asked",
+      { switchingToShort: true, requestedMode: "full" },
+      "cancelShortSwitch",
+    ],
+    [
+      "ignores Short again while it is written",
+      { switchingToShort: true, requestedMode: "short" },
+      "ignore",
+    ],
+  ])("%s", (_name, patch, expected) => {
+    expect(decideSpeak({ ...base, ...patch })).toBe(expected);
+  });
+
+  it("plays Full when the reply has no summary source", () => {
+    expect(requestedReadMode("short", false)).toBe("full");
+    expect(requestedReadMode(undefined, true)).toBe("full");
+    expect(requestedReadMode("short", true)).toBe("short");
   });
 });

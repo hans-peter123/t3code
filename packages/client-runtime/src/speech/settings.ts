@@ -31,6 +31,8 @@ export interface SpeechSettings {
   readonly autoRead: boolean;
   /** What a reply read aloud plays by default on this device. */
   readonly readMode: SpeechReadMode;
+  /** BCP 47 locale dictation listens for; null follows the thread's language. */
+  readonly dictationLanguage: string | null;
 }
 
 export const SPEECH_PROVIDER_KINDS: Record<
@@ -107,7 +109,10 @@ export const DEFAULT_SPEECH_SETTINGS: SpeechSettings = {
   playbackRate: 1,
   autoRead: false,
   readMode: "short",
+  dictationLanguage: null,
 };
+
+const LOCALE_PATTERN = /^[a-z]{2,3}(?:[-_][a-z0-9]{2,8})*$/i;
 
 export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
   if (typeof value !== "object" || value === null) return DEFAULT_SPEECH_SETTINGS;
@@ -167,6 +172,12 @@ export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
     playbackRate,
     autoRead: raw.autoRead === true,
     readMode: raw.readMode === "full" ? "full" : "short",
+    dictationLanguage:
+      typeof raw.dictationLanguage === "string" &&
+      raw.dictationLanguage.length <= 35 &&
+      LOCALE_PATTERN.test(raw.dictationLanguage)
+        ? raw.dictationLanguage
+        : null,
   };
 }
 

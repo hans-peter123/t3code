@@ -295,6 +295,10 @@
       "types": "./src/state/shell.ts",
       "default": "./src/state/shell.ts"
     },
+    "./state/spoken-summary": {
+      "types": "./src/state/spokenSummary.ts",
+      "default": "./src/state/spokenSummary.ts"
+    },
     "./state/source-control": {
       "types": "./src/state/sourceControl.ts",
       "default": "./src/state/sourceControl.ts"

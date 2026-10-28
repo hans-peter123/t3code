@@ -1,4 +1,5 @@
 export { markdownToSpeechText, planSpeechChunks, splitSpeechText } from "./text.ts";
+export { languageSample, resolveDictationLocale } from "./language.ts";
 export { encodeWav, parseWav, type PcmAudio, type PcmFormat } from "./wav.ts";
 export {
   activeSpeechProvider,
@@ -63,4 +64,11 @@ export {
   type HandsFreeState,
   type HandsFreeStep,
 } from "./handsFree.ts";
-export { resolveSpokenText, type SpokenText } from "./readMode.ts";
+export {
+  decideSpeak,
+  requestedReadMode,
+  resolveSpokenText,
+  shownSpeechMode,
+  type SpeakDecision,
+  type SpokenText,
+} from "./readMode.ts";

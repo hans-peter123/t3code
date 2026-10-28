@@ -6,7 +6,10 @@ import {
   type VoiceInputControllerDependencies,
   type VoiceInputPhase,
   type VoiceInputState,
+  type VoiceTranscriber,
 } from "@t3tools/client-runtime/voice-input";
+
+import type { DictationContext } from "../speech/dictationLanguage";
 
 import { normalizeVoiceInputDecibels, VOICE_WAVEFORM_SAMPLE_COUNT } from "./voiceInputMetering";
 
@@ -20,6 +23,8 @@ export type VoiceInputTarget = {
   readonly readDraft: () => VoiceDraftSnapshot | null;
   readonly commitDraft: VoiceInputControllerDependencies["commitDraft"];
   readonly subscribe: () => () => void;
+  /** The thread the text goes to, so dictation can listen for its language. */
+  readonly dictation?: DictationContext;
 };
 
 export type VoiceInputSnapshot = {
@@ -37,8 +42,9 @@ export type VoiceRecordingSample = {
 
 export type VoiceInputSessionDependencies = Omit<
   VoiceInputControllerDependencies,
-  "readDraft" | "commitDraft" | "onStateChange"
+  "readDraft" | "commitDraft" | "onStateChange" | "getTranscriber"
 > & {
+  readonly getTranscriber: (target: VoiceInputTarget | null) => VoiceTranscriber | null;
   /** Reads the live recorder, or null when it is not capturing. */
   readonly sampleRecording: () => VoiceRecordingSample | null;
   /** Levels change every metering tick, so they bypass React state. */
@@ -101,6 +107,7 @@ export class VoiceInputSession {
     this.dependencies = dependencies;
     this.controller = new VoiceInputController({
       ...dependencies,
+      getTranscriber: () => dependencies.getTranscriber(this.target),
       onStateChange: (state) => this.handleStateChange(state),
       readDraft: () => this.target?.readDraft() ?? null,
       commitDraft: (text, selection) => this.target?.commitDraft(text, selection),

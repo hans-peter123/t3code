@@ -10,6 +10,7 @@ import { ListActionRow } from "../../components/ui/ListActionRow";
 import { ListChoiceRow } from "../../components/ui/ListChoiceRow";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { SettingsSection } from "../settings/components/SettingsSection";
+import { type DictationLocaleChoice, dictationLocaleChoices } from "./dictationLanguage";
 import { useSpeechPlayback } from "./speechPlayback";
 import {
   OPENAI_VOICES,
@@ -17,6 +18,7 @@ import {
   speechProviderProblem,
   type SpeechProviderConfig,
   transcriptionProviderProblem,
+  updateSpeechSettings,
   useSpeechSettings,
 } from "./speechSettings";
 import {
@@ -256,6 +258,60 @@ export function SettingsSpeechVoiceRouteScreen({
           <VoiceChoices provider={provider} voices={OPENAI_VOICE_CHOICES} />
         </SettingsSection>
       )}
+    </PickerScreen>
+  );
+}
+
+/** Languages dictation can listen for; null while the recognizer lists them. */
+export function useDictationLocaleChoices(): readonly DictationLocaleChoice[] | null {
+  const [choices, setChoices] = useState<readonly DictationLocaleChoice[] | null>(null);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- asks the native recognizer which locales it supports.
+  useEffect(() => {
+    let current = true;
+    void dictationLocaleChoices().then((next) => {
+      if (current) setChoices(next);
+    });
+    return () => {
+      current = false;
+    };
+  }, []);
+  return choices;
+}
+
+function setDictationLanguage(dictationLanguage: string | null) {
+  void updateSpeechSettings((current) => ({ ...current, dictationLanguage }));
+}
+
+export function SettingsDictationLanguageRouteScreen() {
+  const settings = useSpeechSettings();
+  const choices = useDictationLocaleChoices();
+  return (
+    <PickerScreen>
+      <SettingsSection>
+        <ListChoiceRow
+          label="Automatic"
+          description="On this iPhone, uses the language you write in the thread if it is already downloaded for dictation, otherwise the iPhone language. Dictating once in a language chosen below downloads it. Dictation providers detect the language you speak."
+          selected={settings.dictationLanguage === null}
+          onPress={() => setDictationLanguage(null)}
+        />
+      </SettingsSection>
+      <SettingsSection>
+        {choices === null ? (
+          <View className="min-h-14 items-center justify-center">
+            <AppActivityIndicator colorClassName="accent-icon" />
+          </View>
+        ) : (
+          choices.map((choice, index) => (
+            <ListChoiceRow
+              key={choice.id}
+              label={choice.name}
+              selected={settings.dictationLanguage === choice.id}
+              separated={index > 0}
+              onPress={() => setDictationLanguage(choice.id)}
+            />
+          ))
+        )}
+      </SettingsSection>
     </PickerScreen>
   );
 }

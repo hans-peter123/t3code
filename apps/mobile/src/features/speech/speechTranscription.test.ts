@@ -16,6 +16,7 @@ vi.mock("expo-file-system", () => ({
   },
 }));
 vi.mock("../../native/voiceTranscription", () => ({ getLocalVoiceTranscriber: () => null }));
+vi.mock("../../native/voiceCapture", () => ({ VoiceCapture: null }));
 
 import type { SpeechProviderConfig } from "./speechSettings";
 import { transcribeRecording } from "./speechTranscription";

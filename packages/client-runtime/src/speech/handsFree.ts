@@ -39,7 +39,8 @@ interface Draft {
 
 export interface HandsFreeState {
   readonly phase: HandsFreePhase;
-  /** Empty while off. */
+  /** Empty while off. Thread ids are unique only within their environment. */
+  readonly environmentId: string;
   readonly threadId: string;
   readonly readMode: SpeechReadMode;
   /** Whether a turn is running or queued in the thread, so a reply read mid-turn ends quiet. */
@@ -55,8 +56,9 @@ export interface HandsFreeState {
    * later turn ending without one.
    */
   readonly pending: readonly HandsFreeSpeech[];
-  /** The last finished turn per thread, so a repeated finish event is handled once. */
+  /** The last finished turn per thread key, so a repeated finish event is handled once. */
   readonly finishedTurns: Readonly<Record<string, string>>;
+  /** Request keys within their environment. */
   readonly announcedApprovals: readonly string[];
   readonly seq: number;
 }
@@ -64,6 +66,7 @@ export interface HandsFreeState {
 export type HandsFreeEvent =
   | {
       readonly type: "start";
+      readonly environmentId: string;
       readonly threadId: string;
       readonly readMode: SpeechReadMode;
       readonly agentWorking: boolean;
@@ -97,6 +100,7 @@ export type HandsFreeEvent =
   | { readonly type: "sendFailed"; readonly id: number }
   | {
       readonly type: "turnFinished";
+      readonly environmentId: string;
       readonly threadId: string;
       readonly title: string;
       readonly turnId: string;
@@ -105,13 +109,19 @@ export type HandsFreeEvent =
       /** Whether another turn is still running or queued in that thread. */
       readonly agentWorking: boolean;
     }
-  | { readonly type: "approvalRequested"; readonly requestId: string; readonly title: string };
+  | {
+      readonly type: "approvalRequested";
+      readonly environmentId: string;
+      readonly requestId: string;
+      readonly title: string;
+    };
 
 export type HandsFreeEffect =
   /** A short read whose summary fails reports `speechFailed`; the reducer then retries it in full. */
   | {
       readonly type: "speakReply";
       readonly id: number;
+      readonly environmentId: string;
       readonly threadId: string;
       readonly messageId: string;
       readonly mode: SpeechReadMode;
@@ -132,6 +142,7 @@ export type HandsFreeEffect =
       readonly type: "send";
       readonly id: number;
       readonly draftId: string;
+      readonly environmentId: string;
       readonly threadId: string;
       readonly text: string;
     }
@@ -159,6 +170,7 @@ export const HANDS_FREE_COPY = {
 
 export const HANDS_FREE_OFF: HandsFreeState = {
   phase: { kind: "off" },
+  environmentId: "",
   threadId: "",
   readMode: "short",
   agentWorking: false,
@@ -183,6 +195,7 @@ function speak(state: HandsFreeState, speech: HandsFreeSpeech, then: Next): Hand
     ? step(next, {
         type: "speakReply",
         id,
+        environmentId: state.environmentId,
         threadId: state.threadId,
         messageId: speech.messageId,
         mode: speech.mode,
@@ -202,7 +215,14 @@ function send(state: HandsFreeState, draft: Draft): HandsFreeStep {
   const id = state.seq + 1;
   return step(
     { ...state, seq: id, draft, phase: { kind: "sending", id } },
-    { type: "send", id, draftId: draft.draftId, threadId: state.threadId, text: draft.text },
+    {
+      type: "send",
+      id,
+      draftId: draft.draftId,
+      environmentId: state.environmentId,
+      threadId: state.threadId,
+      text: draft.text,
+    },
   );
 }
 
@@ -254,16 +274,19 @@ const canRedo = (phase: HandsFreePhase) =>
   phase.kind === "unsent" ||
   (phase.kind === "speaking" && phase.then === "unsent");
 
+const scopedKey = (environmentId: string, id: string) => JSON.stringify([environmentId, id]);
+
 function turnFinished(
   state: HandsFreeState,
   event: Extract<HandsFreeEvent, { type: "turnFinished" }>,
 ): HandsFreeStep {
-  if (state.finishedTurns[event.threadId] === event.turnId) return step(state);
+  const threadKey = scopedKey(event.environmentId, event.threadId);
+  if (state.finishedTurns[threadKey] === event.turnId) return step(state);
   const known = {
     ...state,
-    finishedTurns: { ...state.finishedTurns, [event.threadId]: event.turnId },
+    finishedTurns: { ...state.finishedTurns, [threadKey]: event.turnId },
   };
-  if (event.threadId !== state.threadId) {
+  if (event.environmentId !== state.environmentId || event.threadId !== state.threadId) {
     const text = event.messageId
       ? HANDS_FREE_COPY.threadDone(event.title)
       : HANDS_FREE_COPY.threadStopped(event.title);
@@ -303,6 +326,7 @@ export function handsFreeReducer(state: HandsFreeState, event: HandsFreeEvent): 
       ...HANDS_FREE_OFF,
       seq: state.seq,
       abandonedSend: state.abandonedSend,
+      environmentId: event.environmentId,
       threadId: event.threadId,
       readMode: event.readMode,
       agentWorking: event.agentWorking,
@@ -410,10 +434,11 @@ export function handsFreeReducer(state: HandsFreeState, event: HandsFreeEvent): 
       return turnFinished(state, event);
 
     case "approvalRequested": {
-      if (state.announcedApprovals.includes(event.requestId)) return step(state);
+      const requestKey = scopedKey(event.environmentId, event.requestId);
+      if (state.announcedApprovals.includes(requestKey)) return step(state);
       const known = {
         ...state,
-        announcedApprovals: [...state.announcedApprovals, event.requestId],
+        announcedApprovals: [...state.announcedApprovals, requestKey],
       };
       return announce(known, HANDS_FREE_COPY.needsApproval(event.title));
     }
