@@ -40,14 +40,21 @@ export function SettingsHandsFreeProbeRouteScreen() {
       >
         <SettingsSection
           title={PHASE_LABELS[phase]}
-          footer="Start, lock the iPhone, and talk. Finish with the lock screen pause button or a tap on your AirPods. Try several rounds, then copy the log."
+          footer="Start, lock the iPhone, and talk. Finish with the lock screen pause button or a tap on your AirPods. Wait the full 30 seconds while locked. Try both tests, then copy the log."
         >
           {phase === "off" ? (
-            <ListActionRow
-              icon="play"
-              label="Start test"
-              onPress={() => void probe.current?.start()}
-            />
+            <>
+              <ListActionRow
+                icon="play"
+                label="Start test: continuous microphone"
+                onPress={() => void probe.current?.start("continuous")}
+              />
+              <ListActionRow
+                icon="play"
+                label="Start test: recording per round"
+                onPress={() => void probe.current?.start("recorder")}
+              />
+            </>
           ) : (
             <>
               <ListActionRow
