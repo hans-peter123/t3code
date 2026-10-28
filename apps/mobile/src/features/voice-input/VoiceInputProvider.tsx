@@ -114,8 +114,11 @@ const voiceInputAtom = Atom.make((get) => {
   });
   const session: VoiceInputSession = new VoiceInputSession({
     recorder,
-    getTranscriber: () => {
-      return getVoiceTranscriber(registry.get(localVoiceInputAvailableAtom));
+    getTranscriber: (target) => {
+      return getVoiceTranscriber(
+        registry.get(localVoiceInputAvailableAtom),
+        target?.dictation ?? null,
+      );
     },
     requestPermission: permission.requestPermission,
     configureRecording: async () => {

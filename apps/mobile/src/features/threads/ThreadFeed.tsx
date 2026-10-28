@@ -1667,6 +1667,7 @@ function renderFeedEntry(
     | "dispatchingMessageId"
     | "onEditPendingMessage"
     | "threadId"
+    | "detailRef"
     | "workspaceRoot"
   > & {
     readonly copiedRowId: string | null;
@@ -2283,7 +2284,7 @@ function renderFeedEntry(
           />
         ) : null}
         {showAssistantMeta ? (
-          <View className="mt-1 flex-row items-center gap-1">
+          <View className="mt-1 flex-row flex-wrap items-center gap-1">
             <CopyTextButton
               accessibilityLabel="Copy message"
               text={renderedText}
@@ -2296,6 +2297,7 @@ function renderFeedEntry(
                 messageId={message.id}
                 markdown={renderedText}
                 title={props.threadTitle}
+                threadRef={props.detailRef}
                 tintColor={iconSubtleColor}
               />
             ) : null}
@@ -3756,6 +3758,7 @@ export const ThreadFeed = memo(function ThreadFeed({
             onEditPendingMessage: props.onEditPendingMessage,
             onUseArtifactTemplate: props.onUseArtifactTemplate,
             threadId: props.threadId,
+            detailRef: props.detailRef,
             copiedRowId,
             expandedWorkRows,
             workRowSizing,

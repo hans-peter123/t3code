@@ -3,7 +3,12 @@
 // @effect-diagnostics globalDate:off - builds an HTTP date for Retry-After.
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { parseRetryAfter, setSpeechFetch, SpeechProviderError } from "./providers.ts";
+import {
+  parseRetryAfter,
+  setSpeechFetch,
+  SpeechProviderError,
+  transcribeAudio,
+} from "./providers.ts";
 import type { SpeechProviderConfig } from "./settings.ts";
 import {
   planMessageSpeech,
@@ -224,5 +229,44 @@ describe("provider requests", () => {
     setSpeechFetch(async () => new Response(new Uint8Array([1, 0])));
     const wav = await synthesizeMessageWav(provider, "Hello.", new AbortController().signal);
     expect([...parseWav(wav).samples]).toEqual([1, 0]);
+  });
+
+  it.each([
+    ["elevenlabs", "language_code"],
+    ["openai", "language"],
+  ] as const)("asks %s to transcribe in the dictation language", async (kind, field) => {
+    let form: FormData | null = null;
+    setSpeechFetch(async (_url, init) => {
+      form = init.body as FormData;
+      return Response.json({ text: "Hallo" });
+    });
+    const transcriber = { ...provider, kind, transcriptionModel: "stt" };
+    const audio = new Blob([new Uint8Array(4)]);
+    const signal = new AbortController().signal;
+    expect(await transcribeAudio(transcriber, audio, "a.wav", signal, "de-DE")).toBe("Hallo");
+    expect(form!.get(field)).toBe("de");
+
+    await transcribeAudio(transcriber, audio, "a.wav", signal);
+    expect(form!.has(field)).toBe(false);
+
+    await transcribeAudio(transcriber, audio, "a.wav", signal, "nb-NO");
+    expect(form!.get(field)).toBe("no");
+  });
+
+  it("transcribes without the language when the provider rejects it", async () => {
+    const sent: (string | null)[] = [];
+    setSpeechFetch(async (_url, init) => {
+      const language = (init.body as FormData).get("language") as string | null;
+      sent.push(language);
+      return language
+        ? new Response(JSON.stringify({ error: "unsupported language" }), { status: 400 })
+        : Response.json({ text: "Hallo" });
+    });
+    const transcriber = { ...provider, kind: "openai", transcriptionModel: "stt" } as const;
+    const audio = new Blob([new Uint8Array(4)]);
+    expect(
+      await transcribeAudio(transcriber, audio, "a.wav", new AbortController().signal, "yue"),
+    ).toBe("Hallo");
+    expect(sent).toEqual(["yue", null]);
   });
 });

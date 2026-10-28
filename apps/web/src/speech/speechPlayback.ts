@@ -1,5 +1,6 @@
 import {
   activeSpeechProvider,
+  decideSpeak,
   type SpeechProviderConfig,
   encodeWav,
   locateSpeechTime,
@@ -8,6 +9,7 @@ import {
   type SpokenText,
   pcmDuration,
   planMessageSpeech,
+  requestedReadMode,
   speechCacheKeySource,
   speechPartStart,
   speechProviderProblem,
@@ -278,23 +280,31 @@ function wavUrl(wav: Uint8Array): string {
  * once every part is ready.
  */
 export async function speakMessage(input: SpeechRequest): Promise<void> {
-  const requestedMode = input.loadSummary ? (input.mode ?? "full") : "full";
+  const requestedMode = requestedReadMode(input.mode, Boolean(input.loadSummary));
   const loaded = state.phase !== "idle" && state.messageId === input.messageId;
-  if (loaded && pendingShort !== null) {
-    if (requestedMode === "full") {
+  switch (
+    decideSpeak({
+      loaded,
+      preparing: state.phase === "preparing",
+      switchingToShort: pendingShort !== null,
+      currentMode: state.mode,
+      requestedMode,
+    })
+  ) {
+    case "cancelShortSwitch":
       pendingShort = null;
       setState({ ...state, writingShort: false });
-    }
-    return;
+      return;
+    case "ignore":
+      return;
+    case "togglePause":
+      toggleSpeechPause();
+      return;
+    case "switchToShort":
+      return switchToShort(input);
+    case "start":
+      return startReading(input, requestedMode, null, loaded);
   }
-  if (loaded && state.mode === requestedMode) {
-    toggleSpeechPause();
-    return;
-  }
-  if (loaded && requestedMode === "short" && state.phase !== "preparing") {
-    return switchToShort(input);
-  }
-  return startReading(input, requestedMode, null, loaded);
 }
 
 /** Keeps the full reply playing until the short version is ready, so a failure loses nothing. */

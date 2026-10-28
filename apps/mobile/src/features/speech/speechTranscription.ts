@@ -8,6 +8,11 @@ import {
 
 import { getLocalVoiceTranscriber } from "../../native/voiceTranscription";
 import {
+  type DictationContext,
+  onDeviceDictationLocales,
+  providerDictationLanguage,
+} from "./dictationLanguage";
+import {
   currentSpeechSettings,
   loadSpeechSettings,
   type SpeechProviderConfig,
@@ -36,20 +41,22 @@ export function transcribeRecording(
   provider: SpeechProviderConfig,
   uri: string,
   signal: AbortSignal,
+  language: string | null = null,
 ): Promise<string> {
   const part = recordingPart(uri);
-  return transcribeAudio(provider, part.file, part.name, signal);
+  return transcribeAudio(provider, part.file, part.name, signal, language);
 }
 
 function remoteTranscriber(provider: SpeechProviderConfig): VoiceTranscriber {
   return {
     prepare: async ({ signal }) => {
       throwIfVoiceTranscriptionAborted(signal);
+      const language = providerDictationLanguage();
       return {
-        locale: Intl.DateTimeFormat().resolvedOptions().locale,
+        locale: language ?? Intl.DateTimeFormat().resolvedOptions().locale,
         transcribe: async (uri, options) => {
           try {
-            return await transcribeRecording(provider, uri, options.signal);
+            return await transcribeRecording(provider, uri, options.signal, language);
           } catch (error) {
             throwIfVoiceTranscriptionAborted(options.signal);
             throw new VoiceTranscriptionError(
@@ -69,10 +76,17 @@ function configuredProvider(): SpeechProviderConfig | null {
   return provider && transcriptionProviderProblem(provider) === null ? provider : null;
 }
 
-/** The dictation provider chosen in settings, or Apple's on-device recognition. */
-export function getVoiceTranscriber(): VoiceTranscriber | null {
+/**
+ * The dictation provider chosen in settings, or Apple's on-device recognition, listening for the
+ * language chosen in settings. Apple's recognizer needs one, so it otherwise follows the thread's.
+ */
+export function getVoiceTranscriber(
+  context: DictationContext | null = null,
+): VoiceTranscriber | null {
   const provider = configuredProvider();
-  return provider ? remoteTranscriber(provider) : getLocalVoiceTranscriber();
+  return provider
+    ? remoteTranscriber(provider)
+    : getLocalVoiceTranscriber(() => onDeviceDictationLocales(context));
 }
 
 /** Re-renders when the dictation provider changes, so the microphone appears without a restart. */

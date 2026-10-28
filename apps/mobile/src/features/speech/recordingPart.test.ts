@@ -5,6 +5,7 @@ vi.mock("expo-secure-store", () => ({
   setItemAsync: async () => {},
 }));
 vi.mock("../../native/voiceTranscription", () => ({ getLocalVoiceTranscriber: () => null }));
+vi.mock("../../native/voiceCapture", () => ({ VoiceCapture: null }));
 vi.mock("expo-file-system", () => ({
   File: class {
     readonly name: string;
