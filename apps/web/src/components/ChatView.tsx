@@ -285,6 +285,7 @@ import {
 } from "./chat/PanelLayoutControls";
 import type { ExpandedImagePreview } from "./chat/ExpandedImagePreview";
 import { ThreadDetailsPanel } from "./chat/ThreadDetailsPanel";
+import { useAutoReadReplies } from "../speech/useAutoReadReplies";
 import { NoActiveThreadState } from "./NoActiveThreadState";
 import {
   resolveEffectiveEnvMode,
@@ -1504,6 +1505,13 @@ export default function ChatView(props: ChatViewProps) {
     entry.kind === "message" ? [entry.message] : [],
   );
   const timelineEmpty = timelineEntries.length === 0 && !hasStreamedTimelineRows;
+  useAutoReadReplies({
+    threadKey: routeThreadKey,
+    runId: isServerThread ? (activeLatestRun?.runId ?? null) : null,
+    settled: latestRunSettled,
+    messages: timelineMessages,
+    title: activeThread?.title ?? "",
+  });
   const displayedTimelineKey = activeThreadKey ?? routeThreadKey;
   const displayedThreadRef = parseScopedThreadKey(displayedTimelineKey);
   const {

@@ -247,9 +247,7 @@ export async function speakMessage(input: {
   readonly provider?: SpeechProviderConfig;
 }): Promise<void> {
   if (state.messageId === input.messageId) {
-    if (state.buffering) return;
-    if (state.phase === "playing") audio?.pause();
-    else if (state.phase === "paused") void audio?.play();
+    toggleSpeechPause();
     return;
   }
   stopSpeech();
@@ -313,6 +311,12 @@ function seekTo(time: number) {
   goTo(Math.max(0, time), session.waiting ? session.resume : audio ? !audio.paused : false);
 }
 
+export function toggleSpeechPause() {
+  if (state.buffering) return;
+  if (state.phase === "playing") audio?.pause();
+  else if (state.phase === "paused") void audio?.play();
+}
+
 export function seekSpeech(deltaSeconds: number) {
   seekTo(state.currentTime + deltaSeconds);
 }
@@ -347,6 +351,15 @@ function subscribe(listener: () => void) {
   return () => {
     listeners.delete(listener);
   };
+}
+
+export function currentSpeechPhase(): SpeechPhase {
+  return state.phase;
+}
+
+/** Re-renders on every playback change, whichever message is being read. */
+export function useSpeechPlaybackState(): SpeechPlaybackState {
+  return useSyncExternalStore(subscribe, () => state);
 }
 
 /** Re-renders only for the message being read, so other rows stay still while audio plays. */

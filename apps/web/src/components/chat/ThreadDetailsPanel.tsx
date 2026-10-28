@@ -23,6 +23,7 @@ import { ThreadDetailsSection } from "./ThreadDetailsSection";
 import { ThreadAutomationsPanel } from "./ThreadAutomationsPanel";
 import { ThreadRelationshipsPanel } from "./ThreadRelationshipsControl";
 import { ThreadServersPanel } from "./ThreadServersPanel";
+import { ThreadReadAloudSection } from "../../speech/ThreadReadAloudSection";
 
 const GitActionsControl = memo(BaseGitActionsControl);
 
@@ -195,6 +196,8 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
               threadId={props.threadId}
             />
           ) : null}
+
+          {density === "full" && !props.draftId ? <ThreadReadAloudSection /> : null}
         </>
       )}
     </ThreadDetailsCard>

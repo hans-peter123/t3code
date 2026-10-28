@@ -32,12 +32,12 @@ import {
 } from "./speechPlayback";
 import { updateSpeechSettings, useSpeechSettings } from "./speechSettings";
 
-function formatTime(seconds: number): string {
+export function formatSpeechTime(seconds: number): string {
   const whole = Math.max(0, Math.floor(seconds));
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
-function ControlButton(props: {
+export function SpeechControlButton(props: {
   readonly label: string;
   readonly disabled?: boolean;
   readonly onClick: () => void;
@@ -66,7 +66,7 @@ function ControlButton(props: {
   );
 }
 
-function PlaybackRateSelect(props: { readonly rate: number }) {
+export function PlaybackRateSelect(props: { readonly rate: number }) {
   return (
     <Select
       value={String(props.rate)}
@@ -90,6 +90,29 @@ function PlaybackRateSelect(props: { readonly rate: number }) {
   );
 }
 
+/** Starts or toggles reading a message, explaining in a toast why it cannot. */
+export function readMessageAloud(
+  input: { readonly messageId: string; readonly markdown: string; readonly title: string },
+  openPage: (to: "/settings/voice") => void,
+) {
+  speakMessage(input).catch((error: unknown) => {
+    if (error instanceof SpeechNotConfiguredError) {
+      toastManager.add({
+        type: "info",
+        title: "Set up read aloud",
+        description: error.message,
+        actionProps: { children: "Open settings", onClick: () => openPage("/settings/voice") },
+      });
+      return;
+    }
+    toastManager.add({
+      type: "error",
+      title: "Could not read aloud",
+      description: error instanceof Error ? error.message : "Try again.",
+    });
+  });
+}
+
 /** Reads an assistant message aloud; expands into transport controls while it is loaded. */
 export const ReadAloudButton = memo(function ReadAloudButton(props: {
   readonly messageId: string;
@@ -100,78 +123,61 @@ export const ReadAloudButton = memo(function ReadAloudButton(props: {
   const playback = useSpeechPlayback(props.messageId);
   const settings = useSpeechSettings();
 
-  const start = () => {
-    speakMessage(props).catch((error: unknown) => {
-      if (error instanceof SpeechNotConfiguredError) {
-        toastManager.add({
-          type: "info",
-          title: "Set up read aloud",
-          description: error.message,
-          actionProps: {
-            children: "Open settings",
-            onClick: () => void navigate({ to: "/settings/voice" }),
-          },
-        });
-        return;
-      }
-      toastManager.add({
-        type: "error",
-        title: "Could not read aloud",
-        description: error instanceof Error ? error.message : "Try again.",
-      });
-    });
-  };
+  const start = () => readMessageAloud(props, (to) => void navigate({ to }));
 
   if (playback.phase === "idle") {
     // Turned off in settings; with no provider yet the button still leads to setup.
     if (settings.providers.length > 0 && !settings.activeProviderId) return null;
     return (
-      <ControlButton
+      <SpeechControlButton
         label="Read aloud"
         disabled={props.markdown.trim().length === 0}
         onClick={start}
       >
         <Volume2Icon className="size-3" />
-      </ControlButton>
+      </SpeechControlButton>
     );
   }
 
   const preparing = playback.phase === "preparing";
   return (
     <div className="flex items-center">
-      <ControlButton
+      <SpeechControlButton
         label={`Back ${SPEECH_SKIP_SECONDS} seconds`}
         disabled={preparing}
         onClick={() => seekSpeech(-SPEECH_SKIP_SECONDS)}
       >
         <RotateCcwIcon className="size-3" />
-      </ControlButton>
+      </SpeechControlButton>
       {preparing || playback.buffering ? (
-        <ControlButton label="Preparing audio" disabled onClick={() => {}}>
+        <SpeechControlButton label="Preparing audio" disabled onClick={() => {}}>
           <LoaderIcon className="size-3 animate-spin" />
-        </ControlButton>
+        </SpeechControlButton>
       ) : (
-        <ControlButton label={playback.phase === "playing" ? "Pause" : "Resume"} onClick={start}>
+        <SpeechControlButton
+          label={playback.phase === "playing" ? "Pause" : "Resume"}
+          onClick={start}
+        >
           {playback.phase === "playing" ? (
             <PauseIcon className="size-3" />
           ) : (
             <PlayIcon className="size-3" />
           )}
-        </ControlButton>
+        </SpeechControlButton>
       )}
-      <ControlButton
+      <SpeechControlButton
         label={`Forward ${SPEECH_SKIP_SECONDS} seconds`}
         disabled={preparing}
         onClick={() => seekSpeech(SPEECH_SKIP_SECONDS)}
       >
         <RotateCwIcon className="size-3" />
-      </ControlButton>
-      <ControlButton label="Stop reading" onClick={stopSpeech}>
+      </SpeechControlButton>
+      <SpeechControlButton label="Stop reading" onClick={stopSpeech}>
         <SquareIcon className="size-2.5" />
-      </ControlButton>
+      </SpeechControlButton>
       {preparing ? null : (
         <span className="ml-1 text-muted-foreground text-xs tabular-nums">
-          {formatTime(playback.currentTime)} / {formatTime(playback.duration)}
+          {formatSpeechTime(playback.currentTime)} / {formatSpeechTime(playback.duration)}
         </span>
       )}
       <PlaybackRateSelect rate={settings.playbackRate} />
