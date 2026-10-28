@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import { PLAYBACK_RATES } from "@t3tools/client-runtime/speech";
 import {
   LoaderIcon,
   PauseIcon,
@@ -11,17 +12,25 @@ import {
 import { memo, type ReactNode } from "react";
 
 import { Button } from "../components/ui/button";
+import {
+  Select,
+  SelectItem,
+  SelectPopup,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { toastManager } from "../components/ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import {
   SPEECH_SKIP_SECONDS,
   SpeechNotConfiguredError,
   seekSpeech,
+  setSpeechPlaybackRate,
   speakMessage,
   stopSpeech,
   useSpeechPlayback,
 } from "./speechPlayback";
-import { useSpeechSettings } from "./speechSettings";
+import { updateSpeechSettings, useSpeechSettings } from "./speechSettings";
 
 function formatTime(seconds: number): string {
   const whole = Math.max(0, Math.floor(seconds));
@@ -54,6 +63,30 @@ function ControlButton(props: {
         <p>{props.label}</p>
       </TooltipPopup>
     </Tooltip>
+  );
+}
+
+function PlaybackRateSelect(props: { readonly rate: number }) {
+  return (
+    <Select
+      value={String(props.rate)}
+      onValueChange={(value) => {
+        const playbackRate = Number(value);
+        setSpeechPlaybackRate(playbackRate);
+        void updateSpeechSettings((current) => ({ ...current, playbackRate }));
+      }}
+    >
+      <SelectTrigger variant="ghost" size="compact" aria-label="Playback speed">
+        <SelectValue>{`${props.rate}×`}</SelectValue>
+      </SelectTrigger>
+      <SelectPopup>
+        {PLAYBACK_RATES.map((rate) => (
+          <SelectItem key={rate} hideIndicator value={String(rate)}>
+            {`${rate}×`}
+          </SelectItem>
+        ))}
+      </SelectPopup>
+    </Select>
   );
 }
 
@@ -141,6 +174,7 @@ export const ReadAloudButton = memo(function ReadAloudButton(props: {
           {formatTime(playback.currentTime)} / {formatTime(playback.duration)}
         </span>
       )}
+      <PlaybackRateSelect rate={settings.playbackRate} />
     </div>
   );
 });
