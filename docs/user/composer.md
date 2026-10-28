@@ -206,9 +206,8 @@ T3 Code reads each reply, plays a tone, and listens. Nothing is sent until you
 press **Done**, on screen, on the lock screen, or with your AirPods or car's
 play/pause button. Pressing it while a reply is read skips to listening. If it
 heard nothing, it waits for your next press. Listening stops after 5 minutes
-without sending anything. Replies
-are read as the short version or in full, as chosen in **Settings → Voice**; the
-conversation screen switches between them.
+without sending anything. Replies are read as the short version or in full, as
+chosen in **Settings → Voice**; the conversation screen switches between them.
 
 The conversation keeps going with the iPhone locked. When another thread
 finishes, you hear its title. Approvals and questions from the agent are only
