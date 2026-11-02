@@ -1,5 +1,11 @@
 import { useNavigation, type StaticScreenProps } from "@react-navigation/native";
-import { listElevenLabsVoices, type SpeechVoice } from "@t3tools/client-runtime/speech";
+import {
+  fixedSpeechChoices,
+  listSpeechChoices,
+  newSpeechProvider,
+  type SpeechChoice,
+  type SpeechChoiceField,
+} from "@t3tools/client-runtime/speech";
 import { type ReactNode, useEffect, useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,10 +16,10 @@ import { ListActionRow } from "../../components/ui/ListActionRow";
 import { ListChoiceRow } from "../../components/ui/ListChoiceRow";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { SettingsSection } from "../settings/components/SettingsSection";
+import { SpeechProviderIcon } from "./SpeechProviderIcon";
 import { type DictationLocaleChoice, dictationLocaleChoices } from "./dictationLanguage";
 import { useSpeechPlayback } from "./speechPlayback";
 import {
-  OPENAI_VOICES,
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,
   type SpeechProviderConfig,
@@ -86,6 +92,7 @@ export function SettingsSpeechRoleRouteScreen({
         {settings.providers.map((provider) => (
           <ListChoiceRow
             key={provider.id}
+            leading={<SpeechProviderIcon provider={provider} />}
             label={providerLabel(provider)}
             description={role.problem(provider) ?? SPEECH_PROVIDER_KINDS[provider.kind].label}
             selected={provider.id === selectedId}
@@ -109,33 +116,42 @@ export function SettingsSpeechRoleRouteScreen({
   );
 }
 
-type VoiceList =
+type ChoiceList =
   | { readonly status: "loading" }
-  | { readonly status: "loaded"; readonly voices: readonly SpeechVoice[] }
+  | { readonly status: "loaded"; readonly choices: readonly SpeechChoice[] }
   | { readonly status: "failed"; readonly message: string };
 
-const VOICE_LIST_TIMEOUT_MS = 20_000;
+const CHOICE_LIST_TIMEOUT_MS = 20_000;
 
-/** Mounted once per key and attempt, so a retry or a new key starts a fresh request. */
-function useElevenLabsVoices(apiKey: string) {
-  const [list, setList] = useState<VoiceList>({ status: "loading" });
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- fetches the account's voices from ElevenLabs.
+/** Refetches when what the provider is asked changes; a retry remounts it. */
+function useProviderChoices(provider: SpeechProviderConfig, field: SpeechChoiceField) {
+  const { kind, apiKey, baseUrl } = provider;
+  // Voices and languages depend on the speech model; voices are ordered by the language.
+  const model = field === "voice" || field === "language" ? provider.model : "";
+  const language = field === "voice" ? (provider.language ?? "") : "";
+  const [list, setList] = useState<ChoiceList>({ status: "loading" });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- fetches the provider's voices or models.
   useEffect(() => {
     const controller = new AbortController();
     let timedOut = false;
     const timeout = setTimeout(() => {
       timedOut = true;
       controller.abort();
-    }, VOICE_LIST_TIMEOUT_MS);
-    listElevenLabsVoices(apiKey, controller.signal)
+    }, CHOICE_LIST_TIMEOUT_MS);
+    // Only what reaches the provider, so picking a choice does not refetch the list.
+    listSpeechChoices(
+      newSpeechProvider("list", kind, { apiKey, baseUrl, model, language }),
+      field,
+      controller.signal,
+    )
       .then(
-        (voices) => setList({ status: "loaded", voices }),
+        (choices) => setList({ status: "loaded", choices }),
         (error: unknown) => {
           if (controller.signal.aborted && !timedOut) return;
           setList({
             status: "failed",
             message: timedOut
-              ? "ElevenLabs did not answer."
+              ? `${SPEECH_PROVIDER_KINDS[kind].label} did not answer.`
               : error instanceof Error
                 ? error.message
                 : "Try again.",
@@ -144,77 +160,70 @@ function useElevenLabsVoices(apiKey: string) {
       )
       .finally(() => clearTimeout(timeout));
     return () => controller.abort();
-  }, [apiKey]);
+  }, [kind, apiKey, baseUrl, model, language, field]);
   return list;
 }
 
-function VoiceChoices(props: {
+const FIELD_COPY = {
+  voice: { listTitle: "Voices", idLabel: "Voice ID", footer: "Tap a voice to hear it." },
+  model: { listTitle: "Models", idLabel: "Model ID", footer: undefined },
+  transcriptionModel: { listTitle: "Models", idLabel: "Model ID", footer: undefined },
+  language: {
+    listTitle: "Languages",
+    idLabel: "Language code",
+    footer: "Voices sound most natural in their own language, so those come first.",
+  },
+} as const;
+
+function patchFor(field: SpeechChoiceField, choice: SpeechChoice | string) {
+  const id = typeof choice === "string" ? choice : choice.id;
+  if (field === "voice") {
+    return { voice: id, voiceName: typeof choice === "string" ? "" : choice.name };
+  }
+  if (field === "language") return { language: id };
+  return field === "model" ? { model: id } : { transcriptionModel: id };
+}
+
+function Choices(props: {
   readonly provider: SpeechProviderConfig;
-  readonly voices: readonly SpeechVoice[];
+  readonly field: SpeechChoiceField;
+  readonly choices: readonly SpeechChoice[];
   readonly onPick?: () => void;
 }) {
-  const pick = (voice: SpeechVoice) => {
-    editProvider(props.provider.id, { voice: voice.id, voiceName: voice.name });
+  const { provider, field } = props;
+  const pick = (choice: SpeechChoice) => {
+    editProvider(provider.id, patchFor(field, choice));
     props.onPick?.();
     // Hearing the voice is the point of picking one.
-    void playVoiceSample({ ...props.provider, voice: voice.id });
+    if (field === "voice") void playVoiceSample({ ...provider, voice: choice.id });
   };
-  const preparing = useSpeechPlayback(sampleMessageId(props.provider)).phase === "preparing";
-  return props.voices.map((voice, index) => (
+  const preparing = useSpeechPlayback(sampleMessageId(provider)).phase === "preparing";
+  return props.choices.map((choice, index) => (
     <ListChoiceRow
-      key={voice.id}
-      label={voice.name}
-      description={preparing && props.provider.voice === voice.id ? "Loading sample…" : undefined}
-      selected={props.provider.voice === voice.id}
+      key={choice.id}
+      label={choice.name}
+      description={
+        field === "voice" && preparing && provider.voice === choice.id
+          ? "Loading sample…"
+          : choice.description
+      }
+      selected={(provider[field] ?? "") === choice.id}
       separated={index > 0}
-      onPress={() => pick(voice)}
+      onPress={() => pick(choice)}
     />
   ));
 }
 
-function ElevenLabsVoices(props: { readonly provider: SpeechProviderConfig }) {
-  const [attempt, setAttempt] = useState(0);
-  // A pick from the list remounts the Voice ID field so it shows the picked ID.
-  const [picks, setPicks] = useState(0);
-  return (
-    <>
-      <ElevenLabsVoiceList
-        key={`${props.provider.apiKey}:${attempt}`}
-        provider={props.provider}
-        retry={() => setAttempt((count) => count + 1)}
-        onPick={() => setPicks((count) => count + 1)}
-      />
-      <SettingsSection
-        title="Voice ID"
-        footer="Paste the ID of a shared or library voice that is not in your list."
-      >
-        <AppTextInput
-          key={picks}
-          accessibilityLabel="Voice ID"
-          defaultValue={props.provider.voice}
-          placeholder="Voice ID"
-          autoCapitalize="none"
-          autoCorrect={false}
-          spellCheck={false}
-          returnKeyType="done"
-          className="min-h-14 rounded-none border-0 bg-transparent px-4 py-3 text-base text-foreground"
-          onChangeText={(voice) =>
-            editProvider(props.provider.id, { voice: voice.trim(), voiceName: "" })
-          }
-        />
-      </SettingsSection>
-    </>
-  );
-}
-
-function ElevenLabsVoiceList(props: {
+function FetchedChoices(props: {
   readonly provider: SpeechProviderConfig;
+  readonly field: SpeechChoiceField;
   readonly retry: () => void;
   readonly onPick: () => void;
 }) {
-  const list = useElevenLabsVoices(props.provider.apiKey);
+  const list = useProviderChoices(props.provider, props.field);
+  const copy = FIELD_COPY[props.field];
   return (
-    <SettingsSection title="Your voices" footer="Tap a voice to hear it.">
+    <SettingsSection title={copy.listTitle} footer={copy.footer}>
       {list.status === "loading" ? (
         <View className="min-h-14 items-center justify-center">
           <AppActivityIndicator colorClassName="accent-icon" />
@@ -226,40 +235,106 @@ function ElevenLabsVoiceList(props: {
           description={list.message}
           onPress={props.retry}
         />
-      ) : list.voices.length === 0 ? (
+      ) : list.choices.length === 0 ? (
         <Text className="px-4 py-4 text-foreground-muted">
-          No voices in this ElevenLabs account yet.
+          {providerLabel(props.provider)} lists none yet.
         </Text>
       ) : (
-        <VoiceChoices provider={props.provider} voices={list.voices} onPick={props.onPick} />
+        <Choices
+          provider={props.provider}
+          field={props.field}
+          choices={list.choices}
+          onPick={props.onPick}
+        />
       )}
     </SettingsSection>
   );
 }
 
-const OPENAI_VOICE_CHOICES: readonly SpeechVoice[] = OPENAI_VOICES.map((voice) => ({
-  id: voice,
-  name: voice[0]!.toUpperCase() + voice.slice(1),
-}));
-
-export function SettingsSpeechVoiceRouteScreen({
-  route,
-}: StaticScreenProps<{ readonly providerId: string }>) {
-  const settings = useSpeechSettings();
-  const provider = settings.providers.find((entry) => entry.id === route.params.providerId);
-  if (!provider) return <View className="flex-1 bg-sheet" />;
-
+function ChoicePicker(props: {
+  readonly provider: SpeechProviderConfig;
+  readonly field: SpeechChoiceField;
+}) {
+  const { provider, field } = props;
+  const [attempt, setAttempt] = useState(0);
+  // A pick from the list remounts the ID field so it shows the picked ID.
+  const [picks, setPicks] = useState(0);
+  const fixed = fixedSpeechChoices(provider, field);
+  const copy = FIELD_COPY[field];
+  const onPick = () => setPicks((count) => count + 1);
   return (
     <PickerScreen>
-      {provider.kind === "elevenlabs" ? (
-        <ElevenLabsVoices provider={provider} />
+      {fixed ? (
+        <SettingsSection footer={copy.footer}>
+          <Choices provider={provider} field={field} choices={fixed} onPick={onPick} />
+        </SettingsSection>
       ) : (
-        <SettingsSection footer="Tap a voice to hear it.">
-          <VoiceChoices provider={provider} voices={OPENAI_VOICE_CHOICES} />
+        <FetchedChoices
+          key={attempt}
+          provider={provider}
+          field={field}
+          retry={() => setAttempt((count) => count + 1)}
+          onPick={onPick}
+        />
+      )}
+      {/* OpenAI's voices are the whole set; every other list can miss one. */}
+      {field === "voice" && fixed ? null : (
+        <SettingsSection
+          title={copy.idLabel}
+          footer={
+            field === "voice"
+              ? "Paste the ID of a voice that is not in the list."
+              : field === "language"
+                ? "Leave empty to let the model detect the language."
+                : "Type a model that is not in the list."
+          }
+        >
+          <AppTextInput
+            key={picks}
+            accessibilityLabel={copy.idLabel}
+            defaultValue={provider[field] ?? ""}
+            placeholder={copy.idLabel}
+            autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+            returnKeyType="done"
+            className="min-h-14 rounded-none border-0 bg-transparent px-4 py-3 text-base text-foreground"
+            onChangeText={(value) => editProvider(provider.id, patchFor(field, value.trim()))}
+          />
         </SettingsSection>
       )}
     </PickerScreen>
   );
+}
+
+function useRouteProvider(providerId: string) {
+  return useSpeechSettings().providers.find((entry) => entry.id === providerId);
+}
+
+export function SettingsSpeechVoiceRouteScreen({
+  route,
+}: StaticScreenProps<{ readonly providerId: string }>) {
+  const provider = useRouteProvider(route.params.providerId);
+  if (!provider) return <View className="flex-1 bg-sheet" />;
+  return <ChoicePicker provider={provider} field="voice" />;
+}
+
+export function SettingsSpeechModelRouteScreen({
+  route,
+}: StaticScreenProps<{ readonly providerId: string; readonly use: "speech" | "dictation" }>) {
+  const provider = useRouteProvider(route.params.providerId);
+  if (!provider) return <View className="flex-1 bg-sheet" />;
+  // A deep link can carry any segment here.
+  const field = route.params.use === "dictation" ? "transcriptionModel" : "model";
+  return <ChoicePicker key={field} provider={provider} field={field} />;
+}
+
+export function SettingsSpeechLanguageRouteScreen({
+  route,
+}: StaticScreenProps<{ readonly providerId: string }>) {
+  const provider = useRouteProvider(route.params.providerId);
+  if (!provider) return <View className="flex-1 bg-sheet" />;
+  return <ChoicePicker provider={provider} field="language" />;
 }
 
 /** Languages dictation can listen for; null while the recognizer lists them. */

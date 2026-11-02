@@ -38,7 +38,9 @@ export function ListRowLayout({
         disabled && "opacity-45",
       )}
     >
-      {icon ? (
+      {leading ? (
+        <View className="size-6 items-center justify-center">{leading}</View>
+      ) : icon ? (
         <View className="size-6 items-center justify-center">
           <SymbolView
             name={icon}

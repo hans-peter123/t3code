@@ -33,6 +33,7 @@ export function ListChoiceRow(props: {
       className={cn("bg-grouped-card", props.separated && "border-t border-border-subtle")}
     >
       <ListRowLayout
+        leading={props.leading}
         label={props.label}
         leading={props.leading}
         description={props.description}

@@ -132,6 +132,13 @@ function ProviderSettings(props: {
   const speechProblem = speechProviderProblem(provider);
   const dictationProblem = transcriptionProviderProblem(provider);
   const savedKey = provider.apiKey.trim();
+  // The voice and model lists come from the provider, which needs these to answer.
+  const listHint =
+    provider.kind === "elevenlabs" && !savedKey
+      ? "Add an API key first."
+      : custom && !provider.baseUrl.trim()
+        ? "Add the server URL first."
+        : undefined;
   const edit = (patch: Partial<SpeechProviderConfig>) => editProvider(provider.id, patch);
   const title = providerLabel(provider);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- the native header shows the provider's current name.
@@ -232,33 +239,35 @@ function ProviderSettings(props: {
             value={props.reading}
             onValueChange={(on) => assignRole("readAloud", on ? provider.id : null)}
           />
-          {custom ? (
-            <FieldRow
-              label="Voice"
-              defaultValue={provider.voice}
-              placeholder={kind.defaultVoice}
-              onValue={(voice) => edit({ voice })}
-            />
-          ) : (
-            <ListRow
-              label="Voice"
-              description={
-                provider.kind === "elevenlabs" && !savedKey ? "Add an API key first." : undefined
-              }
-              disabled={provider.kind === "elevenlabs" && !savedKey}
-              detail={voiceLabel(provider)}
-              onPress={() =>
-                navigation.navigate("SettingsSpeechVoice", { providerId: provider.id })
-              }
-            />
-          )}
-          <FieldRow
-            label="Model"
-            accessibilityLabel="Speech model"
-            defaultValue={provider.model}
-            placeholder={kind.defaultModel}
-            onValue={(model) => edit({ model })}
+          <ListRow
+            label="Voice"
+            description={listHint}
+            disabled={listHint !== undefined}
+            detail={voiceLabel(provider)}
+            onPress={() => navigation.navigate("SettingsSpeechVoice", { providerId: provider.id })}
           />
+          <ListRow
+            label="Model"
+            description={listHint}
+            disabled={listHint !== undefined}
+            detail={provider.model || "Choose"}
+            onPress={() =>
+              navigation.navigate("SettingsSpeechModel", { providerId: provider.id, use: "speech" })
+            }
+          />
+          {custom ? (
+            <ListRow
+              label="Language"
+              description={listHint}
+              disabled={listHint !== undefined}
+              detail={
+                provider.language && provider.language !== "auto" ? provider.language : "Automatic"
+              }
+              onPress={() =>
+                navigation.navigate("SettingsSpeechLanguage", { providerId: provider.id })
+              }
+            />
+          ) : null}
           <ListActionRow
             icon="play"
             label="Play sample"
@@ -277,12 +286,17 @@ function ProviderSettings(props: {
             value={props.dictating}
             onValueChange={(on) => assignRole("dictation", on ? provider.id : null)}
           />
-          <FieldRow
+          <ListRow
             label="Model"
-            accessibilityLabel="Transcription model"
-            defaultValue={provider.transcriptionModel}
-            placeholder={kind.defaultTranscriptionModel}
-            onValue={(transcriptionModel) => edit({ transcriptionModel })}
+            description={listHint}
+            disabled={listHint !== undefined}
+            detail={provider.transcriptionModel || "Choose"}
+            onPress={() =>
+              navigation.navigate("SettingsSpeechModel", {
+                providerId: provider.id,
+                use: "dictation",
+              })
+            }
           />
           <ListActionRow
             icon="mic"

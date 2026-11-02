@@ -116,6 +116,8 @@ export interface Preferences {
   /** The client `language` setting: a locale code or "system". Unset means English. */
   readonly language?: string;
   readonly microphones?: ReadonlyArray<MicrophoneEntry>;
+  /** Keys of the threads that read finished replies aloud on this device. */
+  readonly readNewRepliesThreads?: readonly string[];
   readonly projectGroupingEnabled?: boolean;
   readonly projectGroupingMode?: SidebarProjectGroupingMode;
   readonly toolCallVisibility?: ToolCallVisibility;
@@ -201,6 +203,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     followUpBehavior?: FollowUpBehavior;
     language?: string;
     microphones?: ReadonlyArray<MicrophoneEntry>;
+    readNewRepliesThreads?: readonly string[];
     projectGroupingEnabled?: boolean;
     projectGroupingMode?: SidebarProjectGroupingMode;
     toolCallVisibility?: ToolCallVisibility;
@@ -317,6 +320,11 @@ function sanitizePreferences(parsed: Preferences): Preferences {
         ? [{ kind: entry.kind, uid: entry.uid, name: entry.name }]
         : [];
     });
+  }
+  if (Array.isArray(parsed.readNewRepliesThreads)) {
+    preferences.readNewRepliesThreads = parsed.readNewRepliesThreads.filter(
+      (key): key is string => typeof key === "string",
+    );
   }
   if (typeof parsed.projectGroupingEnabled === "boolean") {
     preferences.projectGroupingEnabled = parsed.projectGroupingEnabled;

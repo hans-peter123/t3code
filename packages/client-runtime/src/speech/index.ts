@@ -6,12 +6,12 @@ export {
   createSpeechSettingsStore,
   DEFAULT_SPEECH_SETTINGS,
   newSpeechProvider,
-  OPENAI_VOICES,
   PLAYBACK_RATES,
   sanitizeSpeechSettings,
   stepPlaybackRate,
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,
+  speechProviderSite,
   transcriptionProvider,
   transcriptionProviderProblem,
   withSpeechProviderAdded,
@@ -25,7 +25,8 @@ export {
 } from "./settings.ts";
 export {
   describeTranscriptionTest,
-  listElevenLabsVoices,
+  fixedSpeechChoices,
+  listSpeechChoices,
   silentWav,
   setSpeechFetch,
   parseRetryAfter,
@@ -33,7 +34,8 @@ export {
   SpeechProviderError,
   synthesizeSpeech,
   transcribeAudio,
-  type SpeechVoice,
+  type SpeechChoice,
+  type SpeechChoiceField,
 } from "./providers.ts";
 export {
   planMessageSpeech,

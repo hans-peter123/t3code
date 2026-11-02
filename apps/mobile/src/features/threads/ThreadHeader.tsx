@@ -16,6 +16,7 @@ import {
 import { useConversationRunning } from "../handsfree/conversation";
 import { conversationsSupported } from "../handsfree/conversationAvailability";
 import { startConversation } from "../handsfree/startConversation";
+import { useReadNewReplies } from "../speech/readNewReplies";
 
 export function ThreadHeader(props: {
   readonly title: string;
@@ -33,13 +34,15 @@ export function ThreadHeader(props: {
   const gitMenu = useThreadGitMenuDefinition(props.gitControls);
   const terminalMenu = threadTerminalMenu(props.gitControls);
   const filesVisible = props.inspectorMode === "files" && panes.auxiliaryPaneVisible;
-  const conversationRef =
-    conversationsSupported && !props.draft && props.gitControls.hasThread !== false
+  const threadRef =
+    !props.draft && props.gitControls.hasThread !== false
       ? {
           environmentId: EnvironmentId.make(String(props.gitControls.environmentId)),
           threadId: ThreadId.make(String(props.gitControls.threadId)),
         }
       : null;
+  const conversationRef = conversationsSupported ? threadRef : null;
+  const readNewReplies = useReadNewReplies(threadRef);
   const conversationRunning = useConversationRunning(conversationRef);
   const conversationActions: AppBarAction[] = conversationRef
     ? [
@@ -63,7 +66,20 @@ export function ThreadHeader(props: {
         },
       ]
     : [];
-  const actions = [...conversationActions, ...fileActions];
+  const readNewRepliesActions: AppBarAction[] = readNewReplies.available
+    ? [
+        {
+          accessibilityLabel: readNewReplies.enabled
+            ? "Stop reading new replies"
+            : "Read new replies",
+          icon: "speaker.wave.2",
+          selected: readNewReplies.enabled,
+          separateBackground: false,
+          onPress: () => readNewReplies.setEnabled(!readNewReplies.enabled),
+        },
+      ]
+    : [];
+  const actions = [...readNewRepliesActions, ...conversationActions, ...fileActions];
   const menus = [gitMenu, terminalMenu].filter((menu): menu is AppBarMenu => menu !== null);
 
   return (

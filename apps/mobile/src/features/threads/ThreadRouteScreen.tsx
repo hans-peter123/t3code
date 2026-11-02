@@ -979,6 +979,7 @@ function ThreadRouteContent(
                 title={selectedThread.title}
                 subtitle={headerSubtitle}
                 gitControls={threadGitControlProps}
+                threadRef={selectedThreadDetailRef}
                 hasThreadCwd={selectedThreadCwd !== null}
                 inspectorMode={inspectorMode}
                 onOpenFilesInspector={handleOpenFilesInspector}

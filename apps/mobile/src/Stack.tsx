@@ -120,6 +120,8 @@ import { SettingsVoiceRouteScreen } from "./features/settings/SettingsVoiceRoute
 import { SettingsVoiceModelsRouteScreen } from "./features/settings/SettingsVoiceModelsRouteScreen";
 import {
   SettingsDictationLanguageRouteScreen,
+  SettingsSpeechLanguageRouteScreen,
+  SettingsSpeechModelRouteScreen,
   SettingsSpeechRoleRouteScreen,
   SettingsSpeechVoiceRouteScreen,
 } from "./features/speech/SettingsSpeechPickers";
@@ -315,6 +317,16 @@ const SETTINGS_SCREENS = {
     screen: SettingsSpeechVoiceRouteScreen,
     linking: "settings/speech/providers/:providerId/voice",
     options: settingsPage("Voice"),
+  }),
+  SettingsSpeechModel: createNativeStackScreen({
+    screen: SettingsSpeechModelRouteScreen,
+    linking: "settings/voice/providers/:providerId/model/:use",
+    options: { ...SETTINGS_PAGE_OPTIONS, title: "Model" },
+  }),
+  SettingsSpeechLanguage: createNativeStackScreen({
+    screen: SettingsSpeechLanguageRouteScreen,
+    linking: "settings/voice/providers/:providerId/language",
+    options: { ...SETTINGS_PAGE_OPTIONS, title: "Language" },
   }),
   SettingsFollowUp: createNativeStackScreen({
     screen: SettingsFollowUpRouteScreen,
