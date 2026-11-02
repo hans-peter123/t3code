@@ -5,12 +5,12 @@ import { markdownToSpeechText, planSpeechChunks } from "./text.ts";
 import { encodeWav, type PcmAudio } from "./wav.ts";
 
 /** Kept under every provider's per-request limit (gpt-4o-mini-tts takes about 2000 tokens). */
-export const SPEECH_CHUNK_LENGTH = 1500;
+const SPEECH_CHUNK_LENGTH = 1500;
 /**
  * The first request is short so audio starts fast; the second is mid-sized so the first part
  * plays long enough to cover it, even at 2x speed.
  */
-export const SPEECH_LEAD_IN_LENGTHS = [400, 800] as const;
+const SPEECH_LEAD_IN_LENGTHS = [400, 800] as const;
 
 /** Splits a message into the texts to synthesize, in order. */
 export function planMessageSpeech(markdown: string): string[] {

@@ -106,7 +106,7 @@ export const PLAYBACK_RATES: readonly number[] = Array.from(
   (_, index) => clampPlaybackRate(MIN_PLAYBACK_RATE + index * PLAYBACK_RATE_STEP),
 );
 
-export const DEFAULT_SPEECH_SETTINGS: SpeechSettings = {
+const DEFAULT_SPEECH_SETTINGS: SpeechSettings = {
   providers: [],
   activeProviderId: null,
   transcriptionProviderId: null,

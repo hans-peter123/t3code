@@ -1,13 +1,10 @@
-export { markdownToSpeechText, planSpeechChunks, splitSpeechText } from "./text.ts";
 export { languageSample, resolveDictationLocale } from "./language.ts";
-export { encodeWav, parseWav, type PcmAudio, type PcmFormat } from "./wav.ts";
+export { encodeWav, type PcmAudio, type PcmFormat } from "./wav.ts";
 export {
   activeSpeechProvider,
   createSpeechSettingsStore,
-  DEFAULT_SPEECH_SETTINGS,
   newSpeechProvider,
   PLAYBACK_RATES,
-  sanitizeSpeechSettings,
   stepPlaybackRate,
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,
@@ -29,21 +26,14 @@ export {
   listSpeechChoices,
   silentWav,
   setSpeechFetch,
-  parseRetryAfter,
   speechCacheKeySource,
-  SpeechProviderError,
-  synthesizeSpeech,
   transcribeAudio,
   type SpeechChoice,
   type SpeechChoiceField,
 } from "./providers.ts";
 export {
   planMessageSpeech,
-  SPEECH_CHUNK_LENGTH,
-  SPEECH_LEAD_IN_LENGTHS,
-  synthesizeMessageWav,
   synthesizeSpeechParts,
-  withSpeechRetry,
   type SpeechDelay,
   type SpeechPartsOptions,
   type SpeechRetryOptions,
