@@ -31,11 +31,11 @@ describe("playback rate", () => {
 });
 
 describe("read mode", () => {
-  it("defaults to the short version and keeps only known modes", () => {
+  it("defaults to the full message and keeps only known modes", () => {
     const readMode = (value: unknown) => sanitizeSpeechSettings({ readMode: value }).readMode;
-    expect(readMode(undefined)).toBe("short");
-    expect(readMode("full")).toBe("full");
-    expect(readMode("loud")).toBe("short");
+    expect(readMode(undefined)).toBe("full");
+    expect(readMode("short")).toBe("short");
+    expect(readMode("loud")).toBe("full");
   });
 
   it("reads on double tap unless it was turned off", () => {

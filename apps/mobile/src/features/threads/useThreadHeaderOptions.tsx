@@ -1,6 +1,6 @@
 import { useWorkspaceSidebarHeaderItem } from "../layout/useWorkspaceSidebarHeaderItem";
 import { StackActions, useNavigation } from "@react-navigation/native";
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, type ScopedThreadRef, ThreadId } from "@t3tools/contracts";
 import { threadHeaderAppearance } from "./thread-header-appearance";
 import { isDuoDevice } from "../../lib/device-type";
 import type { AppNativeStackNavigationOptions } from "../../native/StackHeader";
@@ -11,6 +11,7 @@ import { withNativeGlassHeaderItem } from "../layout/native-glass-header-items";
 import { useConversationRunning } from "../handsfree/conversation";
 import { conversationsSupported } from "../handsfree/conversationAvailability";
 import { startConversation } from "../handsfree/startConversation";
+import { useReadNewReplies } from "../speech/readNewReplies";
 import {
   ThreadGitControls,
   useThreadGitCenterHeaderItems,
@@ -25,6 +26,7 @@ export function useThreadHeaderOptions(props: {
   readonly headerColor: string;
   readonly usesNativeHeaderGlass: boolean;
   readonly gitControls: Parameters<typeof ThreadGitControls>[0];
+  readonly threadRef?: ScopedThreadRef | null;
   readonly onReturnToThread?: () => void;
   readonly draft?: boolean;
 }) {
@@ -56,12 +58,34 @@ export function useThreadHeaderOptions(props: {
         },
       ]
     : [];
+  const readNewReplies = useReadNewReplies(props.threadRef ?? null);
+  const readNewRepliesItems: NativeHeaderItems = readNewReplies.available
+    ? [
+        {
+          accessibilityLabel: readNewReplies.enabled
+            ? "Stop reading new replies"
+            : "Read new replies",
+          icon: {
+            name: readNewReplies.enabled ? "speaker.wave.2.fill" : "speaker.slash",
+            type: "sfSymbol" as const,
+          },
+          identifier: "thread-right-read-new-replies",
+          label: "Read new replies",
+          onPress: () => readNewReplies.setEnabled(!readNewReplies.enabled),
+          sharesBackground: true,
+          type: "button" as const,
+          variant: "plain" as const,
+        },
+      ]
+    : [];
   const threadCenterHeaderItems = [
     ...useThreadGitCenterHeaderItems(props.gitControls),
+    ...readNewRepliesItems,
     ...conversationItems,
   ];
   const compactRightHeaderItems = [
     ...useThreadGitRightHeaderItems(props.gitControls),
+    ...readNewRepliesItems,
     ...conversationItems,
   ];
   const splitLeftHeaderItems: NativeHeaderItems = [
@@ -142,6 +166,8 @@ export function useThreadHeaderOptions(props: {
       gitStatus?.pr?.url,
       conversationRef !== null,
       conversationRunning,
+      readNewReplies.available,
+      readNewReplies.enabled,
     ],
     fallback:
       !layout.usesSplitView && !props.usesNativeHeaderGlass ? (

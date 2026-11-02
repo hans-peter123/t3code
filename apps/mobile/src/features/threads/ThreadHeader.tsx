@@ -5,6 +5,7 @@ import type { AppBarAction } from "../../components/ui/AppBar.types";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import type { ThreadInspectorMode } from "./thread-inspector-navigation";
 import { useThreadHeaderOptions } from "./useThreadHeaderOptions";
+import { useReadNewReplies } from "../speech/readNewReplies";
 import { useWorkspaceBackNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
 
@@ -24,6 +25,11 @@ export function ThreadHeader(
     useAdaptiveWorkspaceLayout();
   const { onOpenTerminal, onMergeBack } = props.gitControls;
   const native = useThreadHeaderOptions(props);
+  const {
+    available: canReadNewReplies,
+    enabled: readsNewReplies,
+    setEnabled: setReadsNewReplies,
+  } = useReadNewReplies(props.threadRef ?? null);
   const androidHeaderActions = useMemo<ReadonlyArray<AppBarAction>>(() => {
     const actions: AppBarAction[] = [];
     if (props.onReturnToThread) {
@@ -47,6 +53,14 @@ export function ThreadHeader(
         accessibilityLabel: "Open terminal",
         icon: "terminal",
         onPress: () => onOpenTerminal(null),
+      });
+    }
+    if (canReadNewReplies) {
+      actions.push({
+        accessibilityLabel: readsNewReplies ? "Stop reading new replies" : "Read new replies",
+        selected: readsNewReplies,
+        icon: "speaker.wave.2",
+        onPress: () => setReadsNewReplies(!readsNewReplies),
       });
     }
     actions.push({
@@ -74,6 +88,9 @@ export function ThreadHeader(
     props.hasThreadCwd,
     props.hasWorkspaceRoot,
     props.gitControls.canOpenTerminal,
+    canReadNewReplies,
+    readsNewReplies,
+    setReadsNewReplies,
   ]);
 
   return (

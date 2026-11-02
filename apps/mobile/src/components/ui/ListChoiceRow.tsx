@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Platform, View } from "react-native";
 import { useResolveClassNames } from "uniwind";
 
@@ -9,6 +10,7 @@ import { RowPressable } from "./RowPressable";
 
 export function ListChoiceRow(props: {
   readonly label: string;
+  readonly leading?: ReactNode;
   readonly description?: string;
   readonly selected: boolean;
   readonly separated?: boolean;
@@ -30,6 +32,7 @@ export function ListChoiceRow(props: {
       className={cn("bg-grouped-card", props.separated && "border-t border-border-subtle")}
     >
       <ListRowLayout
+        leading={props.leading}
         label={props.label}
         description={props.description}
         disabled={props.disabled}

@@ -8,7 +8,6 @@ import { useSyncExternalStore } from "react";
 
 export {
   activeSpeechProvider,
-  OPENAI_VOICES,
   PLAYBACK_RATES,
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,

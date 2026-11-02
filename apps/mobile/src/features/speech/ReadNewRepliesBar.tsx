@@ -7,7 +7,7 @@ import { View } from "react-native";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
 import { Button } from "../../components/ui/Button";
-import { readNewRepliesWatcher, setReadNewReplies, useReadNewReplies } from "./readNewReplies";
+import { readNewRepliesWatcher, useReadNewReplies } from "./readNewReplies";
 
 // The thread screen focused last. Sheets over it keep it reading; another thread replaces it.
 let reader: object | null = null;
@@ -36,9 +36,9 @@ function useIsReader(): boolean {
   return useSyncExternalStore(subscribeReader, () => reader === self);
 }
 
-/** Above the composer while "Read new replies" is on, and the thread's reader while it shows. */
+/** Above the composer while the thread reads new replies, and its reader while it shows. */
 export function ReadNewRepliesBar(props: { readonly threadRef: ScopedThreadRef | null }) {
-  const { available, enabled } = useReadNewReplies();
+  const { available, enabled, setEnabled } = useReadNewReplies(props.threadRef);
   const active = available && enabled;
   const isReader = useIsReader();
   useAtomMount(readNewRepliesWatcher(active && isReader ? props.threadRef : null));
@@ -47,9 +47,9 @@ export function ReadNewRepliesBar(props: { readonly threadRef: ScopedThreadRef |
     <View className="flex-row items-center gap-2 px-4 pb-2">
       <SymbolView name="speaker.wave.2" size={12} tintColorClassName="accent-foreground-muted" />
       <Text className="min-w-0 flex-1 text-xs text-foreground-muted" numberOfLines={1}>
-        Reading new replies while the app is open
+        Reading new replies in this thread
       </Text>
-      <Button label="Turn off" tone="text" onPress={() => setReadNewReplies(false)} />
+      <Button label="Turn off" tone="text" onPress={() => setEnabled(false)} />
     </View>
   );
 }

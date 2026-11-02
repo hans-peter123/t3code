@@ -117,6 +117,8 @@ import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRoute
 import { SettingsMicrophoneRouteScreen } from "./features/settings/SettingsMicrophoneRouteScreen";
 import {
   SettingsDictationLanguageRouteScreen,
+  SettingsSpeechLanguageRouteScreen,
+  SettingsSpeechModelRouteScreen,
   SettingsSpeechRoleRouteScreen,
   SettingsSpeechVoiceRouteScreen,
 } from "./features/speech/SettingsSpeechPickers";
@@ -386,6 +388,16 @@ const SETTINGS_SCREENS = {
     screen: SettingsSpeechVoiceRouteScreen,
     linking: "settings/voice/providers/:providerId/voice",
     options: { ...SETTINGS_PAGE_OPTIONS, title: "Voice" },
+  }),
+  SettingsSpeechModel: createNativeStackScreen({
+    screen: SettingsSpeechModelRouteScreen,
+    linking: "settings/voice/providers/:providerId/model/:use",
+    options: { ...SETTINGS_PAGE_OPTIONS, title: "Model" },
+  }),
+  SettingsSpeechLanguage: createNativeStackScreen({
+    screen: SettingsSpeechLanguageRouteScreen,
+    linking: "settings/voice/providers/:providerId/language",
+    options: { ...SETTINGS_PAGE_OPTIONS, title: "Language" },
   }),
   SettingsFollowUp: createNativeStackScreen({
     screen: SettingsFollowUpRouteScreen,

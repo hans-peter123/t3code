@@ -1,21 +1,25 @@
 import {
   describeTranscriptionTest,
-  listElevenLabsVoices,
+  fixedSpeechChoices,
+  listSpeechChoices,
   newSpeechProvider,
   silentWav,
   transcribeAudio,
-  OPENAI_VOICES,
   PLAYBACK_RATES,
   SPEECH_PROVIDER_KINDS,
   speechProviderProblem,
+  speechProviderSite,
   transcriptionProviderProblem,
   withSpeechProviderAdded,
   withSpeechProviderRemoved,
+  type SpeechChoice,
+  type SpeechChoiceField,
   type SpeechProviderConfig,
   type SpeechProviderKind,
   type SpeechReadMode,
-  type SpeechVoice,
 } from "@t3tools/client-runtime/speech";
+import { faviconUrlForOrigin } from "@t3tools/shared/favicon";
+import { ServerIcon } from "lucide-react";
 import { useState } from "react";
 
 import { setSpeechPlaybackRate, speakMessage, stopSpeech } from "../../speech/speechPlayback";
@@ -54,6 +58,23 @@ function addProvider(kind: SpeechProviderKind) {
   void updateSpeechSettings((current) => withSpeechProviderAdded(current, provider));
 }
 
+/** The provider's favicon, or a server icon when it fails or the host is private. */
+function ProviderIcon(props: { readonly provider: SpeechProviderConfig }) {
+  const source = faviconUrlForOrigin(speechProviderSite(props.provider), 64);
+  const [failed, setFailed] = useState<string | null>(null);
+  return source === null || failed === source ? (
+    <ServerIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+  ) : (
+    <img
+      src={source}
+      alt=""
+      draggable={false}
+      className="size-4 shrink-0 rounded-sm"
+      onError={() => setFailed(source)}
+    />
+  );
+}
+
 function ProviderSelect(props: {
   readonly label: string;
   readonly offLabel: string;
@@ -69,7 +90,16 @@ function ProviderSelect(props: {
       onValueChange={(value) => props.onChange(value === OFF || value === null ? null : value)}
     >
       <SelectTrigger size="sm" className="w-full sm:w-56" aria-label={props.label}>
-        <SelectValue>{selected ? providerLabel(selected) : props.offLabel}</SelectValue>
+        <SelectValue>
+          {selected ? (
+            <span className="flex items-center gap-2">
+              <ProviderIcon provider={selected} />
+              {providerLabel(selected)}
+            </span>
+          ) : (
+            props.offLabel
+          )}
+        </SelectValue>
       </SelectTrigger>
       <SelectPopup align="end" alignItemWithTrigger={false}>
         <SelectItem hideIndicator value={OFF}>
@@ -79,8 +109,11 @@ function ProviderSelect(props: {
           const problem = props.problem(provider);
           return (
             <SelectItem key={provider.id} hideIndicator value={provider.id}>
-              {providerLabel(provider)}
-              {problem ? ` (${problem.replace(/\.$/, "").toLowerCase()})` : ""}
+              <span className="flex items-center gap-2">
+                <ProviderIcon provider={provider} />
+                {providerLabel(provider)}
+                {problem ? ` (${problem.replace(/\.$/, "").toLowerCase()})` : ""}
+              </span>
             </SelectItem>
           );
         })}
@@ -110,18 +143,133 @@ function TextField(props: {
   );
 }
 
+type ChoiceList =
+  | { readonly status: "loading" }
+  | { readonly status: "loaded"; readonly choices: readonly SpeechChoice[] }
+  | { readonly status: "failed"; readonly message: string };
+
+/** A typed value with a list of what the provider offers, fetched when the list first opens. */
+function ChoiceField(props: {
+  readonly provider: SpeechProviderConfig;
+  readonly field: SpeechChoiceField;
+  readonly label: string;
+  readonly placeholder: string;
+}) {
+  const { provider, field } = props;
+  const fixed = fixedSpeechChoices(provider, field);
+  // What the provider is asked: voices and languages depend on the model, voice order on the language.
+  const source = [
+    provider.apiKey,
+    provider.baseUrl,
+    field === "voice" || field === "language" ? provider.model : "",
+    field === "voice" ? (provider.language ?? "") : "",
+  ].join("\n");
+  const [fetched, setFetched] = useState<{ source: string; list: ChoiceList } | null>(null);
+  const list: ChoiceList | null = fixed
+    ? { status: "loaded", choices: fixed }
+    : fetched?.source === source
+      ? fetched.list
+      : null;
+  const value = provider[field] ?? "";
+  const picked =
+    list?.status === "loaded" ? list.choices.find((choice) => choice.id === value) : undefined;
+  const pickedName = picked?.name ?? (field === "voice" ? provider.voiceName : undefined);
+  const unavailable =
+    !fixed && (provider.kind === "elevenlabs" ? !provider.apiKey.trim() : !provider.baseUrl.trim());
+
+  const load = () => {
+    setFetched({ source, list: { status: "loading" } });
+    listSpeechChoices(provider, field, AbortSignal.timeout(20_000)).then(
+      (choices) => setFetched({ source, list: { status: "loaded", choices } }),
+      (error: unknown) =>
+        setFetched({
+          source,
+          list: {
+            status: "failed",
+            message: error instanceof Error ? error.message : "Try again.",
+          },
+        }),
+    );
+  };
+
+  const commit = (next: string, name?: string) =>
+    editProvider(
+      provider.id,
+      field === "voice"
+        ? { voice: next, voiceName: name ?? "" }
+        : field === "model"
+          ? { model: next }
+          : field === "language"
+            ? { language: next }
+            : { transcriptionModel: next },
+    );
+
+  return (
+    <div className="grid gap-1 text-sm">
+      <span className="text-muted-foreground text-xs">{props.label}</span>
+      <div className="flex gap-2">
+        <DraftInput
+          size="sm"
+          value={value}
+          placeholder={props.placeholder}
+          spellCheck={false}
+          autoComplete="off"
+          aria-label={props.label}
+          onCommit={(next) => commit(next.trim())}
+        />
+        <Select
+          value={value}
+          disabled={unavailable}
+          onOpenChange={(open) => {
+            if (open && (list === null || list.status === "failed")) load();
+          }}
+          onValueChange={(next) => {
+            if (typeof next !== "string" || list?.status !== "loaded") return;
+            commit(next, list.choices.find((choice) => choice.id === next)?.name);
+          }}
+        >
+          <SelectTrigger size="sm" className="w-32 shrink-0" aria-label={`Choose ${props.label}`}>
+            <SelectValue>{pickedName && pickedName !== value ? pickedName : "Choose"}</SelectValue>
+          </SelectTrigger>
+          <SelectPopup align="end" alignItemWithTrigger={false}>
+            {list === null || list.status === "loading" ? (
+              <SelectItem hideIndicator disabled value="">
+                Loading…
+              </SelectItem>
+            ) : list.status === "failed" ? (
+              <SelectItem hideIndicator disabled value="">
+                {list.message}
+              </SelectItem>
+            ) : list.choices.length === 0 ? (
+              <SelectItem hideIndicator disabled value="">
+                Nothing listed
+              </SelectItem>
+            ) : (
+              list.choices.map((choice) => (
+                <SelectItem key={choice.id} hideIndicator value={choice.id}>
+                  <span className="grid">
+                    {choice.name}
+                    {choice.description ? (
+                      <span className="text-muted-foreground text-xs">{choice.description}</span>
+                    ) : null}
+                  </span>
+                </SelectItem>
+              ))
+            )}
+          </SelectPopup>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
 function ProviderCard(props: { readonly provider: SpeechProviderConfig }) {
   const { provider } = props;
   const kind = SPEECH_PROVIDER_KINDS[provider.kind];
-  const [voices, setVoices] = useState<readonly SpeechVoice[] | null>(null);
-  const [busy, setBusy] = useState<"voices" | "sample" | "dictation" | null>(null);
+  const [busy, setBusy] = useState<"sample" | "dictation" | null>(null);
   const [dictationReport, setDictationReport] = useState<string | null>(null);
   const speechProblem = speechProviderProblem(provider);
   const transcriptionProblem = transcriptionProviderProblem(provider);
-  const voiceOptions: readonly SpeechVoice[] | null =
-    provider.kind === "openai"
-      ? OPENAI_VOICES.map((voice) => ({ id: voice, name: voice }))
-      : voices;
 
   const report = (title: string, error: unknown) =>
     toastManager.add({
@@ -133,7 +281,8 @@ function ProviderCard(props: { readonly provider: SpeechProviderConfig }) {
   return (
     <div className="grid gap-3 border-border/60 border-t px-4 py-4 first:border-t-0">
       <div className="flex items-center justify-between gap-2">
-        <p className="font-medium text-sm">
+        <p className="flex items-center gap-2 font-medium text-sm">
+          <ProviderIcon provider={provider} />
           {providerLabel(provider)}
           {provider.name.trim() ? (
             <span className="ml-2 text-muted-foreground text-xs">{kind.label}</span>
@@ -215,70 +364,32 @@ function ProviderCard(props: { readonly provider: SpeechProviderConfig }) {
             onCommit={(apiKey) => editProvider(provider.id, { apiKey: apiKey.trim() })}
           />
         </label>
-        <TextField
+        <ChoiceField
+          provider={provider}
+          field="model"
           label="Speech model (read aloud)"
-          value={provider.model}
           placeholder={kind.defaultModel}
-          onCommit={(model) => editProvider(provider.id, { model })}
         />
-        <TextField
+        {provider.kind === "openai-compatible" ? (
+          <ChoiceField
+            provider={provider}
+            field="language"
+            label="Language (read aloud)"
+            placeholder="auto"
+          />
+        ) : null}
+        <ChoiceField
+          provider={provider}
+          field="transcriptionModel"
           label="Transcription model (dictation)"
-          value={provider.transcriptionModel}
           placeholder={kind.defaultTranscriptionModel}
-          onCommit={(transcriptionModel) => editProvider(provider.id, { transcriptionModel })}
         />
-        <div className="grid gap-1 text-sm">
-          <span className="text-muted-foreground text-xs">
-            {provider.kind === "elevenlabs" ? "Voice ID" : "Voice"}
-          </span>
-          <div className="flex gap-2">
-            {voiceOptions ? (
-              <Select
-                value={provider.voice}
-                onValueChange={(voice) => {
-                  if (typeof voice === "string") editProvider(provider.id, { voice });
-                }}
-              >
-                <SelectTrigger size="sm" className="w-full" aria-label="Voice">
-                  <SelectValue>
-                    {voiceOptions.find((voice) => voice.id === provider.voice)?.name ??
-                      (provider.voice || "Choose a voice")}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectPopup>
-                  {voiceOptions.map((voice) => (
-                    <SelectItem key={voice.id} hideIndicator value={voice.id}>
-                      {voice.name}
-                    </SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
-            ) : (
-              <DraftInput
-                size="sm"
-                value={provider.voice}
-                placeholder={kind.defaultVoice || "Voice ID"}
-                spellCheck={false}
-                onCommit={(voice) => editProvider(provider.id, { voice: voice.trim() })}
-              />
-            )}
-            {provider.kind === "elevenlabs" ? (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!provider.apiKey || busy !== null}
-                onClick={() => {
-                  setBusy("voices");
-                  listElevenLabsVoices(provider.apiKey)
-                    .then(setVoices, (error: unknown) => report("Could not load voices", error))
-                    .finally(() => setBusy(null));
-                }}
-              >
-                {voices ? "Reload" : "Load voices"}
-              </Button>
-            ) : null}
-          </div>
-        </div>
+        <ChoiceField
+          provider={provider}
+          field="voice"
+          label={provider.kind === "elevenlabs" ? "Voice ID" : "Voice"}
+          placeholder={kind.defaultVoice || "Voice ID"}
+        />
       </div>
       {speechProblem ? (
         <p className="text-muted-foreground text-xs">Read aloud: {speechProblem}</p>

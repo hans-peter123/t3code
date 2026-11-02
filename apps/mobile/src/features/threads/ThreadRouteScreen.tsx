@@ -972,6 +972,7 @@ function ThreadRouteContent(
                 headerColor={headerColor}
                 usesNativeHeaderGlass={usesNativeHeaderGlass}
                 gitControls={threadGitControlProps}
+                threadRef={selectedThreadDetailRef}
                 hasThreadCwd={selectedThreadCwd !== null}
                 hasWorkspaceRoot={Boolean(selectedThreadProject?.workspaceRoot)}
                 fileInspectorSupported={fileInspector.supported}

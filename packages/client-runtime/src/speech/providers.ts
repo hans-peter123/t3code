@@ -1,7 +1,7 @@
 // @effect-diagnostics globalFetch:off - shared by React Native and the web, which call plain fetch.
 // @effect-diagnostics globalDate:off - Retry-After dates are compared with the wall clock.
 import { localeLanguage } from "./language.ts";
-import type { SpeechProviderConfig } from "./settings.ts";
+import { OPENAI_VOICES, type SpeechProviderConfig, type SpeechProviderKind } from "./settings.ts";
 import { markdownToSpeechText } from "./text.ts";
 import { encodeWav, parseWav, type PcmAudio } from "./wav.ts";
 
@@ -88,6 +88,12 @@ function rawPcm(samples: Uint8Array): PcmAudio {
   };
 }
 
+/** The language a custom server is asked to speak; empty lets the model detect it. */
+function spokenLanguage(provider: SpeechProviderConfig): string {
+  const language = provider.language?.trim() ?? "";
+  return language === "auto" ? "" : language;
+}
+
 export async function synthesizeSpeech(
   provider: SpeechProviderConfig,
   request: SpeechRequest,
@@ -125,6 +131,7 @@ export async function synthesizeSpeech(
         model: provider.model.trim(),
         voice: provider.voice.trim(),
         input: request.text,
+        ...(custom && spokenLanguage(provider) ? { language: spokenLanguage(provider) } : {}),
         // Self-hosted servers vary in raw PCM support; WAV carries its own format.
         response_format: custom ? "wav" : "pcm",
       }),
@@ -135,26 +142,175 @@ export async function synthesizeSpeech(
   return custom ? parseWav(await bytes(response)) : rawPcm(await bytes(response));
 }
 
-export interface SpeechVoice {
+/** A voice or model a provider offers. */
+export interface SpeechChoice {
   readonly id: string;
   readonly name: string;
+  readonly description?: string;
 }
 
-export async function listElevenLabsVoices(
-  apiKey: string,
-  signal?: AbortSignal,
-): Promise<SpeechVoice[]> {
-  const response = await speechFetch(`${ELEVENLABS_BASE_URL}/voices`, {
-    headers: { "xi-api-key": apiKey.trim() },
-    ...(signal ? { signal } : {}),
+/** The provider setting a list of choices fills in; only custom servers list languages. */
+export type SpeechChoiceField = "voice" | "model" | "transcriptionModel" | "language";
+
+const plainChoices = (ids: readonly string[]): SpeechChoice[] =>
+  ids.map((id) => ({ id, name: id }));
+
+// OpenAI's /models has no capability flags, and ElevenLabs' lists only text-to-speech models.
+const FIXED_CHOICES: Partial<
+  Record<SpeechProviderKind, Partial<Record<SpeechChoiceField, readonly SpeechChoice[]>>>
+> = {
+  openai: {
+    voice: OPENAI_VOICES.map((voice) => ({
+      id: voice,
+      name: voice[0]!.toUpperCase() + voice.slice(1),
+    })),
+    model: plainChoices(["gpt-4o-mini-tts", "tts-1", "tts-1-hd"]),
+    transcriptionModel: plainChoices(["gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"]),
+  },
+  elevenlabs: {
+    transcriptionModel: plainChoices(["scribe_v1", "scribe_v2"]),
+  },
+};
+
+/** Choices known without asking the provider; null when they come from its API. */
+export function fixedSpeechChoices(
+  provider: SpeechProviderConfig,
+  field: SpeechChoiceField,
+): readonly SpeechChoice[] | null {
+  return FIXED_CHOICES[provider.kind]?.[field] ?? null;
+}
+
+type ListedItem = Readonly<Record<string, unknown>>;
+
+function listedItems(value: unknown): readonly unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function text(item: ListedItem, key: string): string | null {
+  const value = item[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+/** OpenAI-compatible servers answer `{ data: [{ id }] }`, or strings and objects under `voices`. */
+function serverItems(body: unknown): ListedItem[] {
+  if (typeof body !== "object" || body === null) return [];
+  const { data, voices } = body as ListedItem;
+  return [...listedItems(data), ...listedItems(voices)].flatMap((item): ListedItem[] => {
+    if (typeof item === "string") return item.trim() ? [{ id: item }] : [];
+    return typeof item === "object" && item !== null ? [item as ListedItem] : [];
   });
-  if (!response.ok) throw await responseError(response, "ElevenLabs");
-  const body = (await response.json()) as {
-    voices?: ReadonlyArray<{ voice_id?: string; name?: string }>;
-  };
-  return (body.voices ?? []).flatMap((voice) =>
-    voice.voice_id ? [{ id: voice.voice_id, name: voice.name ?? voice.voice_id }] : [],
+}
+
+function serverChoice(entry: ListedItem): SpeechChoice[] {
+  const id =
+    text(entry, "id") ?? text(entry, "voice_id") ?? text(entry, "code") ?? text(entry, "name");
+  if (!id) return [];
+  const description = text(entry, "description");
+  return [{ id, name: text(entry, "name") ?? id, ...(description ? { description } : {}) }];
+}
+
+function servesModel(item: ListedItem, model: string): boolean {
+  return (
+    item.id === model ||
+    (Array.isArray(item.models) && item.models.includes(model)) ||
+    (Array.isArray(item.aliases) && item.aliases.includes(model))
   );
+}
+
+/** The chosen model's languages, or every model's when the server does not name the model. */
+function languageChoices(models: readonly ListedItem[], model: string): SpeechChoice[] {
+  const speaking = models.filter(
+    (item) => item.task === undefined || item.task === "text-to-speech",
+  );
+  const chosen = speaking.filter((item) => servesModel(item, model));
+  const seen = new Set<string>();
+  return (chosen.length > 0 ? chosen : speaking)
+    .flatMap((item) => serverItems({ data: item.languages }))
+    .flatMap(serverChoice)
+    .filter((choice) => !seen.has(choice.id) && seen.add(choice.id));
+}
+
+function nativeLanguage(item: ListedItem): string | null {
+  const native = item.native_language;
+  return typeof native === "object" && native !== null ? text(native as ListedItem, "code") : null;
+}
+
+const MODEL_TASKS = { model: "text-to-speech", transcriptionModel: "speech-to-text" } as const;
+
+/** The voices or models a provider offers for one setting. */
+export async function listSpeechChoices(
+  provider: SpeechProviderConfig,
+  field: SpeechChoiceField,
+  signal?: AbortSignal,
+): Promise<readonly SpeechChoice[]> {
+  const fixed = fixedSpeechChoices(provider, field);
+  if (fixed) return fixed;
+  if (field === "language" && provider.kind !== "openai-compatible") return [];
+  const init = signal ? { signal } : {};
+
+  if (provider.kind === "elevenlabs") {
+    const voices = field === "voice";
+    const response = await speechFetch(`${ELEVENLABS_BASE_URL}/${voices ? "voices" : "models"}`, {
+      headers: { "xi-api-key": provider.apiKey.trim() },
+      ...init,
+    });
+    if (!response.ok) throw await responseError(response, "ElevenLabs");
+    const body = (await response.json()) as unknown;
+    if (voices) {
+      const list = typeof body === "object" && body !== null ? (body as ListedItem).voices : null;
+      return listedItems(list).flatMap((item): SpeechChoice[] => {
+        const entry = (typeof item === "object" && item !== null ? item : {}) as ListedItem;
+        const id = text(entry, "voice_id");
+        return id ? [{ id, name: text(entry, "name") ?? id }] : [];
+      });
+    }
+    return listedItems(body).flatMap((item): SpeechChoice[] => {
+      const entry = (typeof item === "object" && item !== null ? item : {}) as ListedItem;
+      const id = text(entry, "model_id");
+      return id && entry.can_do_text_to_speech !== false
+        ? [{ id, name: text(entry, "name") ?? id }]
+        : [];
+    });
+  }
+
+  const apiKey = provider.apiKey.trim();
+  const fetchList = (path: string) =>
+    speechFetch(`${trimSlash(provider.baseUrl)}${path}`, {
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+      ...init,
+    });
+  const missing = (response: Response) => response.status === 404 || response.status === 405;
+  let response = await fetchList(field === "voice" ? "/audio/voices" : "/audio/models");
+  // Servers without /audio/models list everything they run, speech models included, at /models.
+  if ((field === "model" || field === "transcriptionModel") && missing(response)) {
+    response = await fetchList("/models");
+  }
+  if (missing(response)) {
+    throw new SpeechProviderError(
+      `This server does not list its ${field === "voice" ? "voices" : field === "language" ? "languages" : "models"}.`,
+      response.status,
+    );
+  }
+  if (!response.ok) throw await responseError(response, "The voice server");
+  const items = serverItems(await response.json());
+
+  const model = provider.model.trim();
+  if (field === "language") return languageChoices(items, model);
+  if (field !== "voice") {
+    return items
+      .filter((item) => text(item, "task") === null || item.task === MODEL_TASKS[field])
+      .flatMap(serverChoice);
+  }
+  // A server that names each voice's models gets the voices of the chosen model only.
+  const forModel = items.filter((item) => servesModel(item, model));
+  // Voices native to the chosen language sound most natural; another name for a voice goes last.
+  const language = spokenLanguage(provider);
+  const rank = (item: ListedItem) =>
+    (item.is_alias === true ? 2 : 0) + (language && nativeLanguage(item) !== language ? 1 : 0);
+  return (forModel.length > 0 ? forModel : items)
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => rank(a.item) - rank(b.item) || a.index - b.index)
+    .flatMap(({ item }) => serverChoice(item));
 }
 
 /** A stable key for caching a message's audio per provider voice. */
@@ -164,6 +320,7 @@ export function speechCacheKeySource(provider: SpeechProviderConfig, markdown: s
     provider.baseUrl,
     provider.model,
     provider.voice,
+    provider.language ?? "",
     markdownToSpeechText(markdown),
   ]);
 }

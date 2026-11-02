@@ -1,3 +1,4 @@
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import {
   activeSpeechProvider,
   type AutoReadCursor,
@@ -10,29 +11,46 @@ import {
   isLatestRunSettled,
 } from "@t3tools/client-runtime/state/thread-execution";
 import type { MessageId, ScopedThreadRef } from "@t3tools/contracts";
-import { Atom } from "effect/reactivity";
+import { AsyncResult, Atom } from "effect/reactivity";
+import { useCallback } from "react";
 
 import * as Dialog from "../../components/ui/Dialog";
 import { isAppForeground, subscribeAppState } from "../../lib/appState";
 import { audioSessionInUse } from "../../lib/audioSession";
+import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { environmentThreadDetails } from "../../state/threads";
 import { replySpeechRequest } from "./SpeakMessageButton";
 import { currentSpeechPhase, speakMessage, SpeechNotConfiguredError } from "./speechPlayback";
-import { currentSpeechSettings, updateSpeechSettings, useSpeechSettings } from "./speechSettings";
+import { currentSpeechSettings, useSpeechSettings } from "./speechSettings";
 import { canSummarize } from "./spokenSummary";
 
-/** "Read new replies" on this device, the same setting web keeps. */
-export function useReadNewReplies() {
+/** Whether this device reads a thread's finished replies aloud; each thread opts in by itself. */
+export function useReadNewReplies(ref: ScopedThreadRef | null) {
   const settings = useSpeechSettings();
+  const preferences = useAtomValue(mobilePreferencesAtom);
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const key = ref === null ? null : threadKey(ref);
+  const threads = AsyncResult.isSuccess(preferences)
+    ? preferences.value.readNewRepliesThreads
+    : undefined;
+  const setEnabled = useCallback(
+    (enabled: boolean) => {
+      if (key === null) return;
+      savePreferences({
+        transform: (current) => {
+          const others = (current.readNewRepliesThreads ?? []).filter((other) => other !== key);
+          return { readNewRepliesThreads: enabled ? [...others, key] : others };
+        },
+      });
+    },
+    [key, savePreferences],
+  );
   return {
-    /** Read aloud is set up; without a voice the setting would promise nothing. */
-    available: activeSpeechProvider(settings) !== null,
-    enabled: settings.autoRead,
+    /** Read aloud is set up; without a voice the toggle would promise nothing. */
+    available: key !== null && activeSpeechProvider(settings) !== null,
+    enabled: key !== null && threads?.includes(key) === true,
+    setEnabled,
   };
-}
-
-export function setReadNewReplies(autoRead: boolean) {
-  void updateSpeechSettings((current) => ({ ...current, autoRead }));
 }
 
 function readReply(

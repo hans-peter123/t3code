@@ -18,6 +18,8 @@ export interface SpeechProviderConfig {
   readonly voiceName?: string;
   /** Speech-to-text model used for dictation. */
   readonly transcriptionModel: string;
+  /** Language code a custom server speaks in; empty or `auto` lets the model detect it. */
+  readonly language?: string;
 }
 
 export interface SpeechSettings {
@@ -111,7 +113,7 @@ export const DEFAULT_SPEECH_SETTINGS: SpeechSettings = {
   playbackRate: 1,
   autoRead: false,
   doubleTapToRead: true,
-  readMode: "short",
+  readMode: "full",
   dictationLanguage: null,
 };
 
@@ -143,6 +145,7 @@ export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
             baseUrl: text("baseUrl"),
             model: text("model"),
             voice: text("voice"),
+            ...(typeof provider.language === "string" ? { language: provider.language } : {}),
             ...(typeof provider.voiceName === "string" ? { voiceName: provider.voiceName } : {}),
             // Providers saved before dictation existed get the kind's default.
             transcriptionModel:
@@ -175,7 +178,7 @@ export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
     playbackRate,
     autoRead: raw.autoRead === true,
     doubleTapToRead: raw.doubleTapToRead !== false,
-    readMode: raw.readMode === "full" ? "full" : "short",
+    readMode: raw.readMode === "short" ? "short" : "full",
     dictationLanguage:
       typeof raw.dictationLanguage === "string" &&
       raw.dictationLanguage.length <= 35 &&
@@ -183,6 +186,13 @@ export function sanitizeSpeechSettings(value: unknown): SpeechSettings {
         ? raw.dictationLanguage
         : null,
   };
+}
+
+/** The site whose favicon stands for a provider; null for a server without a URL yet. */
+export function speechProviderSite(provider: SpeechProviderConfig): string | null {
+  if (provider.kind === "openai") return "https://openai.com";
+  if (provider.kind === "elevenlabs") return "https://elevenlabs.io";
+  return provider.baseUrl.trim() || null;
 }
 
 /** A provider of the given kind with its default models and voice. */
