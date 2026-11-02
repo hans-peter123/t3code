@@ -22,12 +22,20 @@ iOS:
 ## Updates vom Original übernehmen
 
 ```bash
-fork/sync-upstream.sh
+fork/sync-upstream.sh            # Sync + Push
+fork/sync-upstream.sh --release  # danach Windows, macOS (TeamCity) und iOS (TestFlight) bauen
+fork/release.sh                  # nur bauen, z. B. nach einem Sync ohne --release
 ```
 
 Holt `pingdotgg/t3code`, legt die Fork-Commits oben drauf, löst Konflikte in `pnpm-lock.yaml` automatisch,
-installiert, führt Typecheck + TTS-Tests aus und pusht. Bei echten Konflikten stoppt das Skript und listet
-die Dateien – dann den Agenten bitten, sie zu lösen.
+installiert, führt Typecheck aller Pakete mit Fork-Code, knip und die Sprach-Tests aus und pusht. Gibt es
+nichts Neues, endet es sofort, ohne zu bauen. Bei echten Konflikten oder roten Prüfungen stoppt es und
+listet, was zu tun ist; danach dasselbe Kommando erneut starten, es macht beim Prüfen und Pushen weiter.
+
+`release.sh` braucht NetBird (TeamCity intern unter `10.1.1.211:8111`) und `TEAMCITY_TOKEN` aus der
+Umgebung, `.env.local` oder `~/Herd/notes/.env`. Es wartet, bis alle Builds fertig sind.
+
+Ein geplanter Task in T3 Code startet das alle drei Tage und löst Konflikte mit dem Agenten.
 
 ## iOS bauen und zu TestFlight hochladen
 
