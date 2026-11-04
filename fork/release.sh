@@ -15,7 +15,7 @@ ios=1
 [ "${1:-}" = "--no-ios" ] && ios=0
 
 tc_url="${TEAMCITY_URL:-http://10.1.1.211:8111}"
-token_from() { grep -E '^TEAMCITY_TOKEN=' "$1" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "\"' "; }
+token_from() { { grep -E '^TEAMCITY_TOKEN=' "$1" 2>/dev/null || true; } | tail -1 | cut -d= -f2- | tr -d "\"' "; }
 token="${TEAMCITY_TOKEN:-$(token_from .env.local)}"
 [ -n "$token" ] || token="$(token_from "$HOME/Herd/notes/.env")"
 [ -n "$token" ] || { echo "Kein TEAMCITY_TOKEN gefunden." >&2; exit 1; }
