@@ -3,9 +3,11 @@ import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell
 import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
 
 import { VoiceCapture } from "../../native/voiceCapture";
+import { appAtomRegistry } from "../../state/atom-registry";
 import { readEnvironmentScope } from "../../state/session";
 import { currentSpeechSettings } from "../speech/speechSettings";
 import { getVoiceTranscriber } from "../speech/speechTranscription";
+import { localVoiceInputAvailableAtom } from "../voice-input/VoiceInputProvider";
 
 /** Conversations need the iOS microphone module, so other builds never offer them. */
 export const conversationsSupported = VoiceCapture !== null;
@@ -29,7 +31,7 @@ export function conversationBlocker(
   if (!readEnvironmentScope(thread.environmentId, AuthOrchestrationOperateScope)) {
     return { message: "This connection can't send messages to this thread.", settings: false };
   }
-  if (!getVoiceTranscriber()) {
+  if (!getVoiceTranscriber(appAtomRegistry.get(localVoiceInputAvailableAtom))) {
     return {
       message: "Set up dictation in Voice settings to talk with the agent.",
       settings: true,

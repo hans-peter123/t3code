@@ -67,6 +67,7 @@ export const localVoiceTranscriberAtom = makePermissionStatusAtom<
   read: () => getLocalVoiceTranscriber().catch(() => null),
 }).pipe(Atom.keepAlive);
 
+// Each foreground re-probe yields a new transcriber; composers re-render only when availability flips.
 export const localVoiceInputAvailableAtom = Atom.make((get) => {
   const transcriber = get(localVoiceTranscriberAtom);
   return transcriber !== null && transcriber !== "checking";

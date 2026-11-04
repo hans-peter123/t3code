@@ -93,6 +93,7 @@ it.each([
     deleteRecording: () => {},
     readDraft: () => draft,
     commitDraft: commit,
+    sendDraft: () => undefined,
     onStateChange: () => {},
   });
   await controller.start();
