@@ -35,7 +35,9 @@ listet, was zu tun ist; danach dasselbe Kommando erneut starten, es macht beim P
 `release.sh` braucht NetBird (TeamCity intern unter `10.1.1.211:8111`) und `TEAMCITY_TOKEN` aus der
 Umgebung, `.env.local` oder `~/Herd/notes/.env`. Es wartet, bis alle Builds fertig sind.
 
-Ein geplanter Task in T3 Code startet das alle drei Tage und löst Konflikte mit dem Agenten.
+Ein geplanter Task in T3 Code startet das montags und donnerstags um 6 Uhr, löst Konflikte mit dem
+Agenten und schickt danach mit `fork/send-mail.sh "<Betreff>" <datei>` eine kurze Zusammenfassung über
+die Mail-App dieses Macs an `T3CODE_FORK_MAIL_TO` aus `.env.local`.
 
 ## iOS bauen und zu TestFlight hochladen
 
