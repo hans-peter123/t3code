@@ -76,23 +76,39 @@ function configuredProvider(): SpeechProviderConfig | null {
   return provider && transcriptionProviderProblem(provider) === null ? provider : null;
 }
 
+function onDeviceTranscriber(context: DictationContext | null): VoiceTranscriber {
+  return {
+    prepare: async (options) => {
+      const local = await getLocalVoiceTranscriber(() => onDeviceDictationLocales(context));
+      if (!local) {
+        throw new VoiceTranscriptionError(
+          "unavailable",
+          "Voice transcription is not available on this device.",
+        );
+      }
+      return local.prepare(options);
+    },
+  };
+}
+
 /**
- * The dictation provider chosen in settings, or Apple's on-device recognition, listening for the
- * language chosen in settings. Apple's recognizer needs one, so it otherwise follows the thread's.
+ * The dictation provider chosen in settings, or on-device recognition when the device offers it
+ * (`localAvailable`, probed asynchronously), listening for the language chosen in settings.
+ * Apple's recognizer needs one, so it otherwise follows the thread's.
  */
 export function getVoiceTranscriber(
+  localAvailable: boolean,
   context: DictationContext | null = null,
 ): VoiceTranscriber | null {
   const provider = configuredProvider();
-  return provider
-    ? remoteTranscriber(provider)
-    : getLocalVoiceTranscriber(() => onDeviceDictationLocales(context));
+  if (provider) return remoteTranscriber(provider);
+  return localAvailable ? onDeviceTranscriber(context) : null;
 }
 
 /** Re-renders when the dictation provider changes, so the microphone appears without a restart. */
-export function useVoiceTranscriberAvailable(): boolean {
+export function useVoiceTranscriberAvailable(localAvailable: boolean): boolean {
   useSpeechSettings();
-  return getVoiceTranscriber() !== null;
+  return getVoiceTranscriber(localAvailable) !== null;
 }
 
 // Read the keychain at startup so the first recording already uses the chosen provider.

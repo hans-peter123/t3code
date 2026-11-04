@@ -84,6 +84,7 @@ import {
 import { stopSpeech } from "../speech/speechPlayback";
 import { currentSpeechSettings, loadSpeechSettings } from "../speech/speechSettings";
 import { getVoiceTranscriber } from "../speech/speechTranscription";
+import { localVoiceInputAvailableAtom } from "../voice-input/VoiceInputProvider";
 import { canSummarize, loadSpokenSummary } from "../speech/spokenSummary";
 import { conversationBlocker } from "./conversationAvailability";
 
@@ -741,6 +742,7 @@ class Conversation {
   private prepareTranscription(signal: AbortSignal): Promise<PreparedVoiceTranscription> {
     const ref = this.ref;
     const transcriber = getVoiceTranscriber(
+      appAtomRegistry.get(localVoiceInputAvailableAtom),
       ref && {
         userMessages: () =>
           appAtomRegistry

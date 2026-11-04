@@ -65,7 +65,9 @@ describe("getLocalVoiceTranscriber", () => {
     });
     const controller = new AbortController();
     const options = { signal: controller.signal };
-    const prepared = await (await getLocalVoiceTranscriber(async () => ["sv-SE"]))!.prepare(options);
+    const prepared = await (await getLocalVoiceTranscriber(async () => ["sv-SE"]))!.prepare(
+      options,
+    );
     const result = prepared
       .transcribe("file:///voice.m4a", options)
       .catch((error: unknown) => error);
@@ -86,12 +88,12 @@ describe("getLocalVoiceTranscriber", () => {
         throw Object.assign(new Error("no"), { code: "AppleTranscriptionUnsupportedLocale" });
       return locale;
     });
-    const prepared = await getLocalVoiceTranscriber(async () => ["nb", "en-US"])!.prepare({
+    const prepared = await (await getLocalVoiceTranscriber(async () => ["nb", "en-US"]))!.prepare({
       signal: new AbortController().signal,
     });
     expect(prepared.locale).toBe("en-US");
 
-    const error = await getLocalVoiceTranscriber(async () => ["nb"])!
+    const error = await (await getLocalVoiceTranscriber(async () => ["nb"]))!
       .prepare({ signal: new AbortController().signal })
       .catch((caught: unknown) => caught);
     expect(error).toMatchObject({ code: "unsupported-locale" });

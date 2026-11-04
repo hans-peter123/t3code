@@ -13,6 +13,7 @@ import {
   preferredMicrophoneInput,
   rememberMicrophones,
 } from "../../lib/microphonePriority";
+import { getLocalVoiceTranscriber } from "../../native/voiceTranscription";
 import { getVoiceTranscriber, useVoiceTranscriberAvailable } from "../speech/speechTranscription";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { getNativeShowcaseScene } from "../showcase/nativeShowcaseScene";
@@ -65,7 +66,7 @@ export const localVoiceTranscriberAtom = makePermissionStatusAtom<
 }).pipe(Atom.keepAlive);
 
 // Each foreground re-probe yields a new transcriber; composers re-render only when availability flips.
-const localVoiceInputAvailableAtom = Atom.make((get) => {
+export const localVoiceInputAvailableAtom = Atom.make((get) => {
   const transcriber = get(localVoiceTranscriberAtom);
   return transcriber !== null && transcriber !== "checking";
 });
