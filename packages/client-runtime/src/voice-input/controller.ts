@@ -12,6 +12,7 @@ const isVoiceTranscriptionError = Schema.is(VoiceTranscriptionError);
 export const VOICE_RECORDING_LIMIT_SECONDS = 5 * 60;
 
 /** A reason recording cannot start that the user can act on; its message is shown as is. */
+// @effect-diagnostics-next-line extendsNativeError:off - thrown through promise-based recorder callbacks, not Effect.
 export class VoiceRecordingUnavailableError extends Error {}
 
 export type VoiceInputPhase = "idle" | "preparing" | "recording" | "transcribing" | "error";

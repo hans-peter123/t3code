@@ -59,11 +59,11 @@ function remoteTranscriber(provider: SpeechProviderConfig): VoiceTranscriber {
             return await transcribeRecording(provider, uri, options.signal, language);
           } catch (error) {
             throwIfVoiceTranscriptionAborted(options.signal);
-            throw new VoiceTranscriptionError(
-              "transcription-failed",
-              error instanceof Error ? error.message : "Voice transcription failed.",
-              { cause: error },
-            );
+            throw new VoiceTranscriptionError({
+              code: "transcription-failed",
+              message: error instanceof Error ? error.message : "Voice transcription failed.",
+              cause: error,
+            });
           }
         },
       };
@@ -81,10 +81,10 @@ function onDeviceTranscriber(context: DictationContext | null): VoiceTranscriber
     prepare: async (options) => {
       const local = await getLocalVoiceTranscriber(() => onDeviceDictationLocales(context));
       if (!local) {
-        throw new VoiceTranscriptionError(
-          "unavailable",
-          "Voice transcription is not available on this device.",
-        );
+        throw new VoiceTranscriptionError({
+          code: "unavailable",
+          message: "Voice transcription is not available on this device.",
+        });
       }
       return local.prepare(options);
     },

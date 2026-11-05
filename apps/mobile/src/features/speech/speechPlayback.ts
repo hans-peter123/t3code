@@ -71,6 +71,7 @@ export interface SpeechPlaybackState {
   readonly buffering: boolean;
 }
 
+// @effect-diagnostics-next-line extendsNativeError:off - plain promise playback code with no Effect runtime.
 export class SpeechNotConfiguredError extends Error {
   constructor(message: string) {
     super(message);
