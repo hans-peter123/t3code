@@ -24,6 +24,7 @@ function isMicrophonePermissionError(error: unknown): boolean {
 }
 
 /** A reason recording cannot start that the user can act on; its message is shown as is. */
+// @effect-diagnostics-next-line extendsNativeError:off - thrown through promise-based recorder callbacks, not Effect.
 export class VoiceRecordingUnavailableError extends Error {}
 
 export type VoiceInputPhase =

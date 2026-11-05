@@ -59,11 +59,11 @@ function remoteTranscriber(provider: SpeechProviderConfig): VoiceTranscriber {
             return await transcribeRecording(provider, uri, options.signal, language);
           } catch (error) {
             throwIfVoiceTranscriptionAborted(options.signal);
-            throw new VoiceTranscriptionError(
-              "transcription-failed",
-              error instanceof Error ? error.message : "Voice transcription failed.",
-              { cause: error },
-            );
+            throw new VoiceTranscriptionError({
+              code: "transcription-failed",
+              message: error instanceof Error ? error.message : "Voice transcription failed.",
+              cause: error,
+            });
           }
         },
       };

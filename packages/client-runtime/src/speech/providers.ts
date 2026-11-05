@@ -32,6 +32,7 @@ function trimSlash(url: string): string {
 }
 
 /** A provider answered with an error status; 429 and 5xx are worth retrying. */
+// @effect-diagnostics-next-line extendsNativeError:off - plain fetch code shared with React Native; retries read its status.
 export class SpeechProviderError extends Error {
   readonly status: number;
   /** The provider's `Retry-After`, when it sent one. */
