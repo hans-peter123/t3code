@@ -9,10 +9,10 @@ function Invoke-Checked {
   if ($LASTEXITCODE -ne 0) { throw "$($args -join ' ') failed with $LASTEXITCODE" }
 }
 
-# Vite+ liegt agent-lokal; es wählt Node aus engines.node in package.json.
+# Vite+ liegt agent-lokal; es wählt Node aus engines.node in package.json. Nicht unter
+# AGENT_TOOLS_DIR: das Agent-Update scheitert an den pnpm-Junctions darin und rollt zurück.
 if (-not $env:VP_HOME) {
-  $toolsDir = if ($env:AGENT_TOOLS_DIR) { $env:AGENT_TOOLS_DIR } else { "$env:LOCALAPPDATA" }
-  $env:VP_HOME = Join-Path $toolsDir 't3code-vite-plus'
+  $env:VP_HOME = Join-Path $env:LOCALAPPDATA 't3code-vite-plus'
 }
 $env:VP_NODE_MANAGER = 'yes'
 $env:CI = 'true'

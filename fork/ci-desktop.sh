@@ -13,7 +13,8 @@ cd "$(dirname "$0")/.."
 
 # Vite+ liegt agent-lokal, damit der Build keine Installation des Nutzers anfasst. Es wählt
 # Node aus engines.node in package.json.
-export VP_HOME="${VP_HOME:-${AGENT_TOOLS_DIR:-$HOME/.cache}/t3code-vite-plus}"
+# Nicht unter AGENT_TOOLS_DIR: das Agent-Update stolpert über die pnpm-Links darin.
+export VP_HOME="${VP_HOME:-$HOME/.cache/t3code-vite-plus}"
 export VP_NODE_MANAGER=yes CI=true
 if [ ! -x "$VP_HOME/bin/vp" ]; then
   curl -fsSL https://vite.plus | bash
