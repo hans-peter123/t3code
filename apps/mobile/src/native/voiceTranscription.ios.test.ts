@@ -266,20 +266,25 @@ describe("getLocalVoiceTranscriber", () => {
     expect(mocks.transcribe).not.toHaveBeenCalled();
   });
 
-  it("falls back to the next locale when the recognizer cannot serve the first", async () => {
+  it("listens for the chosen locales ahead of the Language & Region list", async () => {
+    useLanguages(["nb"], "nb");
     mocks.prepare.mockImplementation(async (locale) => {
-      if (locale === "nb")
-        throw Object.assign(new Error("no"), { code: "AppleTranscriptionUnsupportedLocale" });
+      if (locale === "nb") throw unsupportedLocale();
       return locale;
     });
-    const prepared = await (await getLocalVoiceTranscriber(async () => ["nb", "en-US"]))!.prepare({
-      signal: new AbortController().signal,
-    });
-    expect(prepared.locale).toBe("en-US");
+    const transcribe = async (chosen: ReadonlyArray<string>) => {
+      const signal = new AbortController().signal;
+      const prepared = await (await getLocalVoiceTranscriber(async () => chosen))!.prepare({
+        signal,
+      });
+      await prepared.transcribe("file:///voice.m4a", { signal });
+      return prepared.locale;
+    };
 
-    const error = await (await getLocalVoiceTranscriber(async () => ["nb"]))!
-      .prepare({ signal: new AbortController().signal })
-      .catch((caught: unknown) => caught);
-    expect(error).toMatchObject({ code: "unsupported-locale" });
+    expect(await transcribe(["de-DE"])).toBe("de-DE");
+    expect(await transcribe(["nb", "en-US"])).toBe("en-US");
+    expect(await transcribe(["nb"]).catch((caught: unknown) => caught)).toMatchObject({
+      code: "unsupported-locale",
+    });
   });
 });

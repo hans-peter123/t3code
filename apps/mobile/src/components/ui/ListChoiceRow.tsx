@@ -35,7 +35,6 @@ export function ListChoiceRow(props: {
       <ListRowLayout
         leading={props.leading}
         label={props.label}
-        leading={props.leading}
         description={props.description}
         meta={props.meta}
         disabled={props.disabled}

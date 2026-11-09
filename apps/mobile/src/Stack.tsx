@@ -299,8 +299,8 @@ const SETTINGS_SCREENS = {
   }),
   SettingsDictationLanguage: createNativeStackScreen({
     screen: SettingsDictationLanguageRouteScreen,
-    linking: "settings/voice/dictation-language",
-    options: { ...SETTINGS_PAGE_OPTIONS, title: "Dictation language" },
+    linking: "settings/speech/dictation-language",
+    options: settingsPage("Dictation language"),
   }),
   SettingsSpeechRole: createNativeStackScreen({
     screen: SettingsSpeechRoleRouteScreen,
@@ -320,13 +320,13 @@ const SETTINGS_SCREENS = {
   }),
   SettingsSpeechModel: createNativeStackScreen({
     screen: SettingsSpeechModelRouteScreen,
-    linking: "settings/voice/providers/:providerId/model/:use",
-    options: { ...SETTINGS_PAGE_OPTIONS, title: "Model" },
+    linking: "settings/speech/providers/:providerId/model/:use",
+    options: settingsPage("Model"),
   }),
   SettingsSpeechLanguage: createNativeStackScreen({
     screen: SettingsSpeechLanguageRouteScreen,
-    linking: "settings/voice/providers/:providerId/language",
-    options: { ...SETTINGS_PAGE_OPTIONS, title: "Language" },
+    linking: "settings/speech/providers/:providerId/language",
+    options: settingsPage("Language"),
   }),
   SettingsFollowUp: createNativeStackScreen({
     screen: SettingsFollowUpRouteScreen,

@@ -705,6 +705,7 @@ it.effect(
           generateBranchName: () => Effect.die("unused"),
           generateThreadTitle: () => Effect.die("unused"),
           generateTranscriptionPostProcessing: () => Effect.die("unused"),
+          generateSpokenSummary: () => Effect.die("unused"),
           generateReviewGuide: (input) =>
             Effect.sync(() => {
               calls.push(input.modelSelection);

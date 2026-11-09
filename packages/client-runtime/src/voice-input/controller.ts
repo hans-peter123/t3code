@@ -104,7 +104,7 @@ export type VoiceInputControllerDependencies = {
     selection: { readonly start: number; readonly end: number },
   ) => void;
   /** Runs right after a stop-and-send transcript is committed; never after an empty or failed one. */
-  readonly sendDraft: () => void;
+  readonly sendDraft?: () => void;
   readonly onStateChange: (state: VoiceInputState) => void;
 };
 
@@ -374,7 +374,7 @@ export class VoiceInputController {
             ? error.message
             : isMicrophonePermissionError(error)
               ? MICROPHONE_PERMISSION_ERROR
-            : "Could not start voice recording.",
+              : "Could not start voice recording.",
           "retry",
         );
     } finally {
@@ -618,7 +618,7 @@ export class VoiceInputController {
 
       this.dependencies.commitDraft(result.text, result.selection);
       this.setState(IDLE_STATE);
-      if (intent === "send") this.dependencies.sendDraft();
+      if (intent === "send") this.dependencies.sendDraft?.();
     } catch {
       if (this.isCurrent(operationToken)) {
         this.setError("Could not finish voice recording.", "retry");
