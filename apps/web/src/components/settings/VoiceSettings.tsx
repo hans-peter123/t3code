@@ -480,7 +480,7 @@ export function VoiceSettingsPanel() {
         />
         <SettingsRow
           {...searchableSetting("voice-dictation")}
-          description="Adds a microphone to the composer that transcribes what you say."
+          description="The composer microphone transcribes with this provider instead of the Voice destination."
           control={
             <ProviderSelect
               label="Dictate with"

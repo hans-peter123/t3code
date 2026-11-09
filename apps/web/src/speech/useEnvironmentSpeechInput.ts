@@ -40,7 +40,9 @@ import { useEnvironmentScope, usePreparedConnection } from "../state/session";
 import { chooseRecordingMicrophone } from "./browserMicrophones";
 import { createBrowserVoiceInputPlatform } from "./browserVoiceInput";
 import { preferredSpeechLanguages } from "./preferredSpeechLanguages";
+import { createProviderVoiceInputPlatform, readyTranscriptionProvider } from "./providerVoiceInput";
 import { runEnvironmentSpeech } from "./runEnvironmentSpeech";
+import { useSpeechSettings } from "./speechSettings";
 import { bindAudioGrant, readCleanupGrant, useAudioChoice } from "./voiceConsent";
 
 const INITIAL_STATE: VoiceInputState = { phase: "idle", error: null, errorAction: null };
@@ -149,6 +151,9 @@ export function useEnvironmentSpeechInput(input: HookInput) {
   const grantId = destination.grantId;
   const cloudProvider = destination.cloudProvider;
   const cloudModel = destination.cloudModel;
+  // A dictation provider chosen in Settings → Speech wins over the Voice destination.
+  const forkProvider = readyTranscriptionProvider(useSpeechSettings());
+  const forkProviderId = forkProvider?.id ?? null;
   const draftCapabilities = useEnvironment(input.environmentId)?.serverConfig?.environment
     .capabilities;
   const originatingConnection = Option.getOrNull(usePreparedConnection(input.environmentId));
@@ -207,10 +212,10 @@ export function useEnvironmentSpeechInput(input: HookInput) {
     submit: (text: string) => void;
     text?: string;
   } | null>(null);
-  const latestRef = useRef({ input, clientSettings, cleanupPrepared, projectWords });
+  const latestRef = useRef({ input, clientSettings, cleanupPrepared, projectWords, forkProvider });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- publishes committed props and settings to the asynchronous recording controller
   useEffect(() => {
-    latestRef.current = { input, clientSettings, cleanupPrepared, projectWords };
+    latestRef.current = { input, clientSettings, cleanupPrepared, projectWords, forkProvider };
   });
   const draftRevisionRef = useRef({ ownerKey: input.ownerKey, text: input.draftText, revision: 0 });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- tracks committed draft revisions so a late transcript cannot overwrite an edited draft
@@ -227,8 +232,9 @@ export function useEnvironmentSpeechInput(input: HookInput) {
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- owns the recording controller bound to the consented destination; it is disposed with the consent
   useEffect(() => {
-    if (!prepared || !grantId || typeof navigator === "undefined") return;
-    const hasAudioConsent = bindAudioGrant(grantId);
+    if (typeof navigator === "undefined") return;
+    if (!forkProviderId && (!prepared || !grantId)) return;
+    const hasAudioConsent = forkProviderId || !grantId ? () => true : bindAudioGrant(grantId);
     let disposed = false;
     let controller: VoiceInputController;
     let recordingPreferences:
@@ -257,8 +263,9 @@ export function useEnvironmentSpeechInput(input: HookInput) {
         revision: draftRevisionRef.current.revision,
       };
     };
-    const platform = createBrowserVoiceInputPlatform({
-      prepared,
+    // Reads `prepared` only once a recording starts, which never happens with a fork provider.
+    const environmentPlatform = createBrowserVoiceInputPlatform({
+      prepared: prepared!,
       cloudProvider,
       cloudModel,
       hasAudioConsent,
@@ -307,6 +314,19 @@ export function useEnvironmentSpeechInput(input: HookInput) {
         if (!disposed) void controller.interruptRecording(message);
       },
     });
+    // Provider dictation has no recordingPreferences, so upstream's transcript cleanup is skipped.
+    const platform = forkProviderId
+      ? createProviderVoiceInputPlatform({
+          getProvider: () => latestRef.current.forkProvider,
+          getLanguage: () => latestRef.current.clientSettings.speechLanguage,
+          getMicrophoneId: () => latestRef.current.clientSettings.voiceMicrophone,
+          onLevel: setLevel,
+          onDurationLimit: () => void controller.stop(),
+          onError: (message) => {
+            if (!disposed) void controller.interruptRecording(message);
+          },
+        })
+      : environmentPlatform;
     const postProcess: NonNullable<VoiceInputControllerDependencies["postProcess"]> = (
       transcript,
       options,
@@ -374,7 +394,7 @@ export function useEnvironmentSpeechInput(input: HookInput) {
       controller.dispose();
       if (controllerRef.current === controller) controllerRef.current = null;
     };
-  }, [prepared, grantId, cloudProvider, cloudModel]);
+  }, [prepared, grantId, cloudProvider, cloudModel, forkProviderId]);
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- probes the chosen environment's speech status once its connection is available
   useEffect(() => {
@@ -478,6 +498,12 @@ export function useEnvironmentSpeechInput(input: HookInput) {
 
   const start = useStableCallback(async () => {
     if (latestRef.current.input.disabled || (setup.open && setup.downloading)) return;
+    if (forkProviderId) {
+      if (!controllerRef.current) return;
+      setLevel(0);
+      await controllerRef.current.start();
+      return;
+    }
     if (!grantId) {
       if (destination.offerFirstRunSetup && latestRef.current.input.offerSetup !== false)
         await navigate({ to: "/settings/voice", hash: "voice-transcription-destination" });
@@ -592,11 +618,12 @@ export function useEnvironmentSpeechInput(input: HookInput) {
   });
 
   const destinationReady =
-    grantId === null
+    forkProviderId !== null ||
+    (grantId === null
       ? Boolean(destination.offerFirstRunSetup) && input.offerSetup !== false
       : prepared !== null &&
         (cloudProvider !== undefined ||
-          (status?.prepared === prepared && status.value?.supported !== false));
+          (status?.prepared === prepared && status.value?.supported !== false)));
   return {
     available:
       destinationReady &&
