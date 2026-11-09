@@ -32,6 +32,10 @@ build_number="$(date +%Y%m%d%H%M)"
 build_dir="$root/apps/mobile/ios/build"
 archive="$build_dir/T3Code.xcarchive"
 
+# pnpm skips this package's postinstall now and then; without RaTeX, pod install fails.
+markdown="$(cd apps/mobile && node -p 'require("path").dirname(require.resolve("react-native-enriched-markdown/package.json"))')"
+[ -d "$markdown/ios/vendor/RaTeX.xcframework" ] || (cd "$markdown" && node postinstall.mjs)
+
 cd apps/mobile
 APP_VARIANT=production EXPO_NO_GIT_STATUS=1 npx expo prebuild --clean --platform ios
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' ios/T3Code/Info.plist)"
