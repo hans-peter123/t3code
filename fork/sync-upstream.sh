@@ -77,11 +77,6 @@ if ! git diff --quiet pnpm-lock.yaml; then
   git commit -m "chore(fork): refresh lockfile" pnpm-lock.yaml
 fi
 
-if ! grep -q "preferredIntervals = \[15.0\]" apps/mobile/node_modules/expo-audio/ios/MediaController.swift; then
-  echo "WARNUNG: Der expo-audio-Patch für 15-Sekunden-Sprünge auf dem Sperrbildschirm greift nicht mehr." >&2
-  echo "         Vermutlich hat Upstream expo-audio aktualisiert; patches/expo-audio@*.patch prüfen." >&2
-fi
-
 # Upstream ändert gern Schnittstellen, die Fork-Code nutzt; daher alle Pakete mit Fork-Code prüfen.
 for package in packages/contracts packages/client-runtime apps/server apps/web apps/desktop apps/mobile; do
   echo "Typecheck $package"

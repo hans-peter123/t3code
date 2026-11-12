@@ -292,7 +292,12 @@ function onPartReady(current: Session, title: string) {
     ensurePlayer().setActiveForLockScreen(
       true,
       { title: title || "T3 Code", artist: "T3 Code" },
-      { showSeekBackward: true, showSeekForward: true },
+      {
+        showSeekBackward: true,
+        showSeekForward: true,
+        seekBackwardIntervalSeconds: 15,
+        seekForwardIntervalSeconds: 15,
+      },
     );
   } else if (current.waiting && current.item === current.parts.length - 1) {
     load(current, current.item, 0, current.resume);
