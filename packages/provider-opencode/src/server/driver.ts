@@ -228,7 +228,7 @@ function selectOpenCodeRuntimeTextGeneration(
         v2: v2.generateTranscriptionPostProcessing(input),
       }),
     generateSpokenSummary: (input) =>
-      byOpenCodeRuntime(probe.get, {
+      byOpenCodeRuntime(resolve, {
         v1: v1.generateSpokenSummary(input),
         v2: v2.generateSpokenSummary(input),
       }),

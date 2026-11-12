@@ -204,8 +204,11 @@ export const make = Effect.gen(function* () {
       );
     }),
     generateSpokenSummary: Effect.fn("TextGeneration.generateSpokenSummary")(function (input) {
-      return generate("generateSpokenSummary", input.modelSelection, (service, modelSelection) =>
-        service.generateSpokenSummary({ ...input, modelSelection }),
+      return generate(
+        "generateSpokenSummary",
+        input.modelSelection,
+        null,
+        (service, modelSelection) => service.generateSpokenSummary({ ...input, modelSelection }),
       );
     }),
     generateThreadTitle: Effect.fn("TextGeneration.generateThreadTitle")(function (input) {
