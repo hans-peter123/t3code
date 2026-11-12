@@ -3,6 +3,7 @@ export { encodeWav, type PcmAudio, type PcmFormat } from "./wav.ts";
 export {
   activeSpeechProvider,
   createSpeechSettingsStore,
+  sanitizeSpeechSettings,
   newSpeechProvider,
   PLAYBACK_RATES,
   stepPlaybackRate,

@@ -27,6 +27,8 @@ if [ "$(env_value T3CODE_MOBILE_UPDATES_ENABLED)" != "0" ]; then
   echo "WARNUNG: T3CODE_MOBILE_UPDATES_ENABLED=0 fehlt; offizielle OTA-Updates könnten den Fork überschreiben." >&2
 fi
 [ -f .env ] || cp .env.example .env
+# Fest verbaute Anbieter (EXPO_PUBLIC_T3_SPEECH_*) aus .env.local landen beim Bündeln im JS.
+while IFS= read -r line; do export "${line?}"; done < <(grep -E '^EXPO_PUBLIC_' .env.local 2>/dev/null || true)
 
 # xcode-select points at the Command Line Tools; Xcode lives in /Applications or on the external SSD.
 if [ -z "${DEVELOPER_DIR:-}" ]; then

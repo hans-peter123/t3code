@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-const store = vi.hoisted(() => new Map<string, string>());
+const store = vi.hoisted(() => {
+  // A personal build's .env.local bakes providers in; these tests start without them.
+  for (const name of Object.keys(process.env)) {
+    if (name.startsWith("EXPO_PUBLIC_T3_SPEECH_")) delete process.env[name];
+  }
+  return new Map<string, string>();
+});
 
 vi.mock("expo-secure-store", () => ({
   getItemAsync: async (key: string) => store.get(key) ?? null,
@@ -54,5 +60,28 @@ describe("speechSettings", () => {
 
     await updateSpeechSettings((current) => ({ ...current, providers: [] }));
     expect((await loadSpeechSettings()).transcriptionProviderId).toBeNull();
+  });
+
+  it("writes built-in providers over the stored ones and keeps them active", async () => {
+    vi.resetModules();
+    vi.stubEnv("EXPO_PUBLIC_T3_SPEECH_TTS_URL", "https://voice.example/v1");
+    vi.stubEnv("EXPO_PUBLIC_T3_SPEECH_TTS_KEY", "user:secret");
+    vi.stubEnv("EXPO_PUBLIC_T3_SPEECH_STT_URL", "https://stt.example/v1");
+    vi.stubEnv("EXPO_PUBLIC_T3_SPEECH_STT_MODEL", "whisper-large");
+    try {
+      const fresh = await import("./speechSettings");
+      const settings = await fresh.loadSpeechSettings();
+      expect(fresh.activeSpeechProvider(settings)).toMatchObject({
+        baseUrl: "https://voice.example/v1",
+        apiKey: "user:secret",
+        voice: "house",
+      });
+      expect(fresh.transcriptionProvider(settings)).toMatchObject({
+        baseUrl: "https://stt.example/v1",
+        transcriptionModel: "whisper-large",
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
