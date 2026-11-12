@@ -28,6 +28,17 @@ if [ "$(env_value T3CODE_MOBILE_UPDATES_ENABLED)" != "0" ]; then
 fi
 [ -f .env ] || cp .env.example .env
 
+# xcode-select points at the Command Line Tools; Xcode lives in /Applications or on the external SSD.
+if [ -z "${DEVELOPER_DIR:-}" ]; then
+  for app in /Applications/Xcode.app "/Volumes/SSD Data/Xcode.app"; do
+    [ -d "$app/Contents/Developer" ] && export DEVELOPER_DIR="$app/Contents/Developer" && break
+  done
+fi
+if ! xcodebuild -version >/dev/null 2>&1; then
+  echo "Kein Xcode gefunden (/Applications oder SSD Data angeschlossen?)." >&2
+  exit 1
+fi
+
 build_number="$(date +%Y%m%d%H%M)"
 build_dir="$root/apps/mobile/ios/build"
 archive="$build_dir/T3Code.xcarchive"
