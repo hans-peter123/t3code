@@ -31,6 +31,18 @@ function trimSlash(url: string): string {
   return url.trim().replace(/\/+$/, "");
 }
 
+/**
+ * The Authorization header for an OpenAI-compatible key. A key written as `user:password` is a
+ * login for a server behind Basic Auth, such as a service address on a Nirod GPU box.
+ */
+export function authorizationHeaders(apiKey: string): Record<string, string> {
+  const key = apiKey.trim();
+  if (!key) return {};
+  return key.includes(":")
+    ? { Authorization: `Basic ${btoa(key)}` }
+    : { Authorization: `Bearer ${key}` };
+}
+
 /** A provider answered with an error status; 429 and 5xx are worth retrying. */
 // @effect-diagnostics-next-line extendsNativeError:off - plain fetch code shared with React Native; retries read its status.
 export class SpeechProviderError extends Error {
@@ -119,14 +131,13 @@ export async function synthesizeSpeech(
   }
 
   const custom = provider.kind === "openai-compatible";
-  const apiKey = provider.apiKey.trim();
   const response = await speechFetch(
     `${custom ? trimSlash(provider.baseUrl) : OPENAI_BASE_URL}/audio/speech`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+        ...authorizationHeaders(provider.apiKey),
       },
       body: JSON.stringify({
         model: provider.model.trim(),
@@ -274,10 +285,9 @@ export async function listSpeechChoices(
     });
   }
 
-  const apiKey = provider.apiKey.trim();
   const fetchList = (path: string) =>
     speechFetch(`${trimSlash(provider.baseUrl)}${path}`, {
-      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+      headers: authorizationHeaders(provider.apiKey),
       ...init,
     });
   const missing = (response: Response) => response.status === 404 || response.status === 405;
@@ -355,9 +365,7 @@ export async function transcribeAudio(
     : `${provider.kind === "openai-compatible" ? trimSlash(provider.baseUrl) : OPENAI_BASE_URL}/audio/transcriptions`;
   const headers: Record<string, string> = elevenLabs
     ? { "xi-api-key": apiKey }
-    : apiKey
-      ? { Authorization: `Bearer ${apiKey}` }
-      : {};
+    : authorizationHeaders(apiKey);
   const request = (code: string | null) => {
     const form = new FormData();
     form.append("file", file, fileName);

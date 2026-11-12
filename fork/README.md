@@ -11,7 +11,9 @@ iOS:
 - Geschwindigkeit unter **Einstellungen → Read aloud → Playback speed**: 0,75× bis 2× in 0,05er-Schritten (−/+, Tippen auf den Wert setzt auf 1× zurück).
 - Wiedergabe läuft im Hintergrund weiter und erscheint auf dem Sperrbildschirm / im Kontrollzentrum (Play/Pause, ±15 s, Scrubben).
 - Provider in **Einstellungen → Read aloud**: OpenAI, ElevenLabs oder ein eigener OpenAI-kompatibler Server
-  (z. B. Kokoro-FastAPI im NetBird-Netz). API-Keys liegen im iOS-Schlüsselbund.
+  (z. B. Kokoro-FastAPI im NetBird-Netz). API-Keys liegen im iOS-Schlüsselbund. Steht im Key-Feld
+  `benutzer:passwort`, geht er als Basic Auth statt Bearer raus — so erreicht man Dienstadressen einer
+  Nirod-GPU-Box (z. B. Kieps `stimme`, Stimme von Hand eintippen: `house` oder `freund`).
 - Code: `apps/mobile/src/features/speech/`.
 
 ## Branches

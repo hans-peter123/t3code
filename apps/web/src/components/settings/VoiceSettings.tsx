@@ -355,7 +355,9 @@ function ProviderCard(props: { readonly provider: SpeechProviderConfig }) {
         ) : null}
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground text-xs">
-            {provider.kind === "openai-compatible" ? "API key (optional)" : "API key"}
+            {provider.kind === "openai-compatible"
+              ? "API key or user:password (optional)"
+              : "API key"}
           </span>
           <SecretInput
             size="sm"

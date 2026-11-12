@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { listSpeechChoices, setSpeechFetch, synthesizeSpeech } from "./providers.ts";
+import {
+  authorizationHeaders,
+  listSpeechChoices,
+  setSpeechFetch,
+  synthesizeSpeech,
+} from "./providers.ts";
 import { encodeWav } from "./wav.ts";
 import { newSpeechProvider } from "./settings.ts";
 
@@ -151,5 +156,15 @@ describe("listSpeechChoices", () => {
     const choices = await listSpeechChoices(newSpeechProvider("p", "openai"), "transcriptionModel");
     expect(choices.map((choice) => choice.id)).toContain("gpt-4o-transcribe");
     expect(requested).toEqual([]);
+  });
+});
+
+describe("authorizationHeaders", () => {
+  it("sends a key as Bearer and a user:password login as Basic Auth", () => {
+    expect(authorizationHeaders(" nk_key ")).toEqual({ Authorization: "Bearer nk_key" });
+    expect(authorizationHeaders("stimme:geheim")).toEqual({
+      Authorization: `Basic ${btoa("stimme:geheim")}`,
+    });
+    expect(authorizationHeaders("  ")).toEqual({});
   });
 });

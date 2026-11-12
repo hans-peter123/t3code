@@ -31,7 +31,9 @@ export function promptForApiKey(kind: SpeechProviderKind, onKey: (apiKey: string
   const page = KEY_PAGES[kind];
   Alert.prompt(
     `${SPEECH_PROVIDER_KINDS[kind].label} API key`,
-    page ? `Create one at ${page}.` : "Only if your server asks for one.",
+    page
+      ? `Create one at ${page}.`
+      : "Only if your server asks for one. For a login, enter user:password.",
     [
       { text: "Cancel", style: "cancel" },
       {
